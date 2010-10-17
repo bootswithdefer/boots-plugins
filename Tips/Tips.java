@@ -15,10 +15,10 @@ import net.minecraft.server.MinecraftServer;
 
 public class Tips extends Plugin {
    private String name = "Tips";
-	private int version = 3;
+	private int version = 4;
    private String location = "tips.txt";
    private String  color = MyColors.LightBlue;
-   private String  prefix = "TIP";
+   private String  prefix = "TIP: ";
    private boolean stopTimer = false;
    private int delay = 120;
    private ArrayList<String> tips;
@@ -64,18 +64,28 @@ public class Tips extends Plugin {
       return -1;
    }
 
-   public void broadcastTip() {
-		if (tips.isEmpty())
-			return;
+   public void broadcastTip()
+	{
+		broadcastTip(currentTip);
       if (currentTip >= tips.size())
           currentTip = 0;
-      String message = MyColors.codeToColor(color) + prefix + ": " + tips.get(currentTip);
+		else
+      	currentTip++;
+   }
+
+
+   public void broadcastTip(int tipnum)
+	{
+		if (tips.isEmpty())
+			return;
+		if (tipnum < 0 || tipnum >= tips.size())
+			return;
+      String message = MyColors.codeToColor(color) + prefix + tips.get(tipnum);
       for (Player p : etc.getServer().getPlayerList()) {
          if (p != null /*&& !p.canUseCommand("/notips")*/) {
             p.sendMessage(message);
          }
       }
-      currentTip++;
    }
 
    private void saveTips()
@@ -128,15 +138,20 @@ public class Tips extends Plugin {
       try {
          location = properties.getString("tip-location", "tips.txt");
          delay = properties.getInt("tip-delay", 120);
-         prefix = properties.getString("tip-prefix",   "TIP");
+         prefix = properties.getString("tip-prefix",   "TIP: ");
          color = properties.getString("tip-color", MyColors.LightBlue);
       } catch (Exception e) {
          log.log(Level.SEVERE, "Exception while reading from server.properties", e);
       }
+		if (prefix == null || prefix.length() == 0)
+			prefix = "";
+		else if (prefix.charAt(prefix.length()-1) != ' ')
+			prefix = prefix + " ";
       etc.getInstance().addCommand("/tip", " - display a random tip.");
       etc.getInstance().addCommand("/addtip", " [tip] - Add a tip.");
       etc.getInstance().addCommand("/deltip", " [tipnum] - Delete a tip.");
       etc.getInstance().addCommand("/findtip", " - Delete a tip.");
+      etc.getInstance().addCommand("/btip", " [tipnum] - Broadcast a tip.");
       etc.getInstance().addCommand("/reloadtips", " - Reload tips from file.");
       loadTips();
       startTimer();
@@ -200,7 +215,25 @@ public class Tips extends Plugin {
 	            player.sendMessage(Colors.Rose + "Not tip found containing '" + line + "'.");
 	            return true;
 	         }
-	         player.sendMessage(MyColors.codeToColor(color) + prefix + " " + tip + ": " + tips.get(tip));
+	         player.sendMessage(MyColors.codeToColor(color) + prefix + tip + ": " + tips.get(tip));
+	         return true;
+	      }
+	      else if (split[0].equalsIgnoreCase("/btip")) {
+	         int tip = -1;
+	         if (split.length < 2) {
+	            player.sendMessage(Colors.Rose + "Usage: /btip [tip number]");
+	            return true;
+	         }
+	         try {
+	            tip = Integer.parseInt(split[1]);
+	         } catch (NumberFormatException ex) {
+	            tip = -1;
+	         }
+	         if (tip < 0 || tip >= tips.size()) {
+	            player.sendMessage(Colors.Rose + "Invalid tip number.");
+	            return true;
+	         }
+				broadcastTip(tip);
 	         return true;
 	      }
 	      else if (split[0].equalsIgnoreCase("/reloadtips")) {
@@ -212,7 +245,7 @@ public class Tips extends Plugin {
 				if (generator == null)
 					generator = new Random();
 				int tipNum = generator.nextInt(tips.size());
-	         player.sendMessage(MyColors.codeToColor(color) + prefix + ": " + tips.get(tipNum));
+	         player.sendMessage(MyColors.codeToColor(color) + prefix + tips.get(tipNum));
 	         return true;
 	      }
 	      return false;
