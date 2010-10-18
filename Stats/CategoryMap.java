@@ -80,7 +80,7 @@ public class CategoryMap
 					continue;
 				String[] split = line.split(":");
 				if (split.length != 3) {
-					log.info("Malformed line (" + line + ") in " + location);
+					log.log(Level.SEVERE, "Malformed line (" + line + ") in " + location);
 				 	continue;
 				}
 				String category = split[0];

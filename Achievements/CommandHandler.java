@@ -1,5 +1,6 @@
 import java.util.ArrayList;
 import java.util.logging.Logger;
+import java.util.logging.Level;
 
 public class CommandHandler
 {
@@ -19,7 +20,7 @@ public class CommandHandler
 		{
 			String[] s = c.split(" ");
 			if (s.length < 2) {
-				log.info("Invalid command " + c);
+				log.log(Level.SEVERE, "Invalid command " + c);
 				continue;
 			}
 
@@ -39,7 +40,7 @@ public class CommandHandler
 			if (s[0].equalsIgnoreCase("item"))
 			{
 				if (s.length < 3) {
-					log.info("Bad command (not enough arguments) correct is: item itemname amount");
+					log.log(Level.SEVERE, "Bad command (not enough arguments) correct is: item itemname amount");
 					continue;
 				}
 				item = etc.getDataSource().getItem(s[1]);
@@ -51,7 +52,7 @@ public class CommandHandler
 					amount = Integer.parseInt(s[2]);
 				}
 				catch (NumberFormatException ex) {
-					log.info("Bad command (amount is not a number) correct is: item itemname amount");
+					log.log(Level.SEVERE, "Bad command (amount is not a number) correct is: item itemname amount");
 					continue;
 				}
 				player.giveItem(item, amount);
@@ -61,7 +62,7 @@ public class CommandHandler
 			if (s[0].equalsIgnoreCase("group"))
 			{
 				if (s.length < 2) {
-					log.info("Bad command (not enough arguments) correct is: group groupname");
+					log.log(Level.SEVERE, "Bad command (not enough arguments) correct is: group groupname");
 					continue;
 				}
 				player.addGroup(s[1]);
@@ -73,7 +74,7 @@ public class CommandHandler
 				continue;
 			}
 
-			log.info("Unknown command " + s[0]);
+			log.log(Level.SEVERE, "Unknown command " + s[0]);
 		}
 	}
 

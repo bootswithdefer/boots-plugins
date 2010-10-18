@@ -57,7 +57,7 @@ public class Achievements extends Plugin
    private void checkStats()
    {
 		if (statsPlugin == null) {
-			log.info(name + ": no Stats plugin found.");
+			log.log(Level.SEVERE, name + ": no Stats plugin found.");
 			return;
 		}
 	
@@ -161,7 +161,7 @@ public class Achievements extends Plugin
                continue;
             String[] split = line.split(":");
             if (split.length < 7) {
-               log.info("Malformed line (" + line + ") in " + listLocation);
+               log.log(Level.SEVERE, "Malformed line (" + line + ") in " + listLocation);
                continue;
             }
 				int enabled = Integer.parseInt(split[0]);
@@ -228,7 +228,7 @@ public class Achievements extends Plugin
                continue;
             String[] split = line.split(":");
             if (split.length < 1) {
-               log.info("Malformed line (" + line + ") in " + location);
+               log.log(Level.SEVERE, "Malformed line (" + line + ") in " + location);
                continue;
             }
             int count = 1;
