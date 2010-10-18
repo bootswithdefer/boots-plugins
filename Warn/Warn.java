@@ -10,7 +10,7 @@ import net.minecraft.server.MinecraftServer;
 public class Warn extends Plugin
 {
 	private String name = "Warn";
-	private int version = 1;
+	private int version = 2;
 	private int delay = 10;
 	private boolean running = false;
 
@@ -52,6 +52,7 @@ public class Warn extends Plugin
 	{
 		log.info(name + " Mod v" + version + " Enabled.");
 		etc.getInstance().addCommand("/warn", " [player] [message] - warn a player about violating a rule.");
+		etc.getInstance().addCommand("/unwarn", " [player] - removes a warning.");
 		etc.getInstance().addCommand("/acknowledge", " - acknoledge a warning.");
 		etc.getInstance().addCommand("/listwarnings", " - list warnings in effect.");
 		startTimer();
@@ -117,6 +118,16 @@ public class Warn extends Plugin
 				WarnData warning = new WarnData(player.getName(), target.getName(), message);
 				warnings.put(target.getName(), warning);
 				sendWarning(target, warning);
+				player.sendMessage("You warn " + target.getName() + ".");
+				return true;
+			}
+			if (split[0].equalsIgnoreCase("/unwarn")) {
+				if (split.length < 2) {
+					player.sendMessage(Colors.Rose + "Usage: /unwarn [player]");
+					return true;
+				}
+				player.sendMessage(Colors.Rose + "Removed.");
+				warnings.remove(split[1]);
 				return true;
 			}
 			if (split[0].equalsIgnoreCase("/listwarnings")) {
