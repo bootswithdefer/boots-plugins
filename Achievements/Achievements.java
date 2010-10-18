@@ -21,7 +21,7 @@ import net.minecraft.server.MinecraftServer;
 public class Achievements extends Plugin
 {
    private String name = "Achievements";
-   private int version = 3;
+   private int version = 4;
    private boolean stopTimer = false;
    private String directory = "achievements";
    private String listLocation = "achievements.txt";
@@ -29,7 +29,7 @@ public class Achievements extends Plugin
    private HashMap<String, AchievementListData> achievementList = new HashMap<String, AchievementListData>();
    private HashMap<String, HashSet<PlayerAchievementData>> playerAchievements = new HashMap<String, HashSet<PlayerAchievementData>>();
 	private Plugin statsPlugin = null;
-
+	
    static final Logger log = Logger.getLogger("Minecraft");
 
    private void startTimer()
@@ -104,6 +104,8 @@ public class Achievements extends Plugin
             p.sendMessage(Colors.LightBlue + "(" + ach.getDescription() + ")");
 				
             savePlayerAchievements(p.getName());
+				
+				ach.commands.run(p);
          }
       }
    }
@@ -116,9 +118,11 @@ public class Achievements extends Plugin
          writer = new BufferedWriter(new	FileWriter(listLocation));
          writer.write("# Achievements");
          writer.newLine();
-         writer.write("# Format is: enabled:name:maxawards:category:key:value:description");
+         writer.write("# Format is: enabled:name:maxawards:category:key:value:description[:commands]");
          writer.newLine();
-         writer.write("# Example: 1:ClownPuncher:1:stats:armswing:1000:Awarded for punching the air 1000 times.");
+         writer.write("# commands are optional, separated by semicolons (;), available commands: item group");
+         writer.newLine();
+         writer.write("# Example: 1:ClownPuncher:1:stats:armswing:1000:Awarded for punching the air 1000 times.[:item goldblock 1]");
          writer.newLine();
          for (String name: achievementList.keySet())
          {
@@ -163,7 +167,10 @@ public class Achievements extends Plugin
 				int enabled = Integer.parseInt(split[0]);
             int maxawards = Integer.parseInt(split[2]);
             int value = Integer.parseInt(split[5]);
-            achievementList.put(split[1], new AchievementListData(enabled, split[1], maxawards, split[3], split[4], value, split[6]));
+				String commands = null;
+				if (split.length == 8)
+					commands = split[7];
+            achievementList.put(split[1], new AchievementListData(enabled, split[1], maxawards, split[3], split[4], value, split[6], commands));
          }
          scanner.close();
       } 
