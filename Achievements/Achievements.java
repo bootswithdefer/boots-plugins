@@ -21,14 +21,13 @@ import net.minecraft.server.MinecraftServer;
 public class Achievements extends Plugin
 {
    private String name = "Achievements";
-   private int version = 4;
+   private int version = 5;
    private boolean stopTimer = false;
    private String directory = "achievements";
    private String listLocation = "achievements.txt";
    private int delay = 300;
    private HashMap<String, AchievementListData> achievementList = new HashMap<String, AchievementListData>();
    private HashMap<String, HashSet<PlayerAchievementData>> playerAchievements = new HashMap<String, HashSet<PlayerAchievementData>>();
-	private Plugin statsPlugin = null;
 	
    static final Logger log = Logger.getLogger("Minecraft");
 
@@ -56,11 +55,6 @@ public class Achievements extends Plugin
 
    private void checkStats()
    {
-		if (statsPlugin == null) {
-			log.log(Level.SEVERE, name + ": no Stats plugin found.");
-			return;
-		}
-	
       for  (Player p: etc.getServer().getPlayerList())
       {
          if (!playerAchievements.containsKey(p.getName())) // add player to achievement list
@@ -72,7 +66,9 @@ public class Achievements extends Plugin
 				if (!ach.isEnabled()) // disabled, skip
 					continue;
 
-				int playerValue = statsPlugin.get(p.getName(), ach.getCategory(), ach.getKey());
+				Object ret = etc.getLoader().callCustomHook("get stat", new Object[] {p.getName(), ach.getCategory(), ach.getKey()});
+				int playerValue = (Integer)ret;
+				
           	if (playerValue < ach.getValue()) // doesn't meet requirements, skip
            		continue;
 
@@ -254,7 +250,7 @@ public class Achievements extends Plugin
 	
    public void enable()
    {
-	   statsPlugin = etc.getLoader().getPlugin("Stats");
+	   Plugin statsPlugin = etc.getLoader().getPlugin("Stats");
       if (statsPlugin == null)
       {
          log.log(Level.SEVERE, "Stats plugin not found, aborting load of " + name);
@@ -292,8 +288,58 @@ public class Achievements extends Plugin
 		etc.getLoader().addListener(PluginLoader.Hook.LOGIN, listener, this, PluginListener.Priority.LOW);
 		etc.getLoader().addListener(PluginLoader.Hook.DISCONNECT, listener, this, PluginListener.Priority.LOW);
 		etc.getLoader().addListener(PluginLoader.Hook.COMMAND, listener, this, PluginListener.Priority.LOW);
+		
+		etc.getLoader().addCustomListener(new AchievementAward());
+	}
+
+	private void info(String msg)
+	{
+		log.info(name + ": " + msg);
 	}
 	
+	private void error(String msg)
+	{
+		log.log(Level.SEVERE, name + ": " + msg);
+	}
+	
+	// custom plugin listener
+	public class AchievementAward implements PluginInterface
+	{
+		public String getName() { return "award achievement"; }
+		public int getNumParameters() { return 2; }
+
+		public String checkParameters(Object[] parameters)
+		{
+			boolean good;
+
+			if (parameters.length != getNumParameters())
+				return getName() + ": incorrect number of parameters, got: " + parameters.length + " expected: " + getNumParameters();
+			
+			good = false;
+			if (parameters[0] instanceof String)
+				good = true;
+			if (!good)
+				return getName() + ": parameter 0 should be String";
+			good = false;
+			if (parameters[1] instanceof String)
+				good = true;
+			if (!good)
+				return getName() + ": parameter 1 should be String";
+				
+			return null;
+		}
+
+		public Object run(Object[] parameters)
+		{
+			String playername = (String)parameters[0];
+			String achievement = (String)parameters[1];
+			
+			info(playername + " " + achievement);
+			return false;
+		}
+	}
+	
+	// hey0 command listener
 	public class AchievementsListener extends PluginListener
 	{
 	   public void onLogin(Player player)

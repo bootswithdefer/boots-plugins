@@ -5,7 +5,7 @@ import net.minecraft.server.MinecraftServer;
 public class Rtfm extends Plugin
 {
 	private String name = "Rtfm";
-	private int version = 2;
+	private int version = 3;
 	
 	static final Logger log = Logger.getLogger("Minecraft");
 	
@@ -24,7 +24,7 @@ public class Rtfm extends Plugin
 		RtfmListener listener = new RtfmListener();
 		etc.getLoader().addListener(PluginLoader.Hook.COMMAND, listener, this, PluginListener.Priority.MEDIUM);
 	}
-
+	
 	public class RtfmListener extends PluginListener
 	{
 		public boolean onCommand(Player player, String[] split) {
@@ -59,6 +59,8 @@ public class Rtfm extends Plugin
 				player.sendMessage(Colors.Rose + "Tell people to read /motd, do NOT tell them to /rtfm");
 				player.sendMessage(Colors.Yellow + "Visit the web site in /motd for rules and pictures.");
 				player.sendMessage(Colors.Rose + "Helpful commands: /help, /spawn, /kit, /listwarps, /who");
+				
+				etc.getLoader().callCustomHook("award achievement", new Object[] {player.getName(), "rtfm"});
 				return true;
 			}
 			return false;

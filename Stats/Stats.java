@@ -19,7 +19,7 @@ import net.minecraft.server.MinecraftServer;
 public class Stats extends Plugin
 {
 	private String name = "Stats";
-	private int version = 4;
+	private int version = 5;
 	private PlayerMap playerStats = new PlayerMap();
 	private boolean stopTimer = false;
 	private String directory = "stats";
@@ -80,6 +80,8 @@ public class Stats extends Plugin
 		etc.getLoader().addListener(PluginLoader.Hook.DISCONNECT, listener, this, PluginListener.Priority.LOW);
 		etc.getLoader().addListener(PluginLoader.Hook.PLAYER_MOVE, listener, this, PluginListener.Priority.LOW);
 		etc.getLoader().addListener(PluginLoader.Hook.ARM_SWING, listener, this, PluginListener.Priority.LOW);
+		
+		etc.getLoader().addCustomListener(new StatsGet());
 	}
 
 	private void updateStat(Player player, String statType)
@@ -147,6 +149,49 @@ public class Stats extends Plugin
 
 		if (count > 0)
 			log.info(name + " old blocks cleaned: " + count);
+	}
+	
+	// custom listener class
+	public class StatsGet implements PluginInterface
+	{
+		public String getName() { return "get stat"; }
+		public int getNumParameters() { return 3; }
+
+		public String checkParameters(Object[] parameters)
+		{
+			boolean good;
+
+			if (parameters.length != getNumParameters())
+				return getName() + ": incorrect number of parameters, got: " + parameters.length + " expected: " + getNumParameters();
+			
+			good = false;
+			if (parameters[0] instanceof String)
+				good = true;
+			if (!good)
+				return getName() + ": parameter 0 should be String";
+			good = false;
+			if (parameters[1] instanceof String)
+				good = true;
+			if (!good)
+				return getName() + ": parameter 1 should be String";
+			good = false;
+			if (parameters[2] instanceof String)
+				good = true;
+			if (!good)
+				return getName() + ": parameter 2 should be String";
+				
+			return null;
+		}
+
+		public Object run(Object[] parameters)
+		{
+			String name = (String)parameters[0];
+			String category = (String)parameters[1];
+			String key = (String)parameters[2];
+			
+			int data = get(name, category, key);
+			return data;
+		}
 	}
 	
 	// Listener Class
