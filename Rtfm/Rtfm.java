@@ -53,6 +53,8 @@ public class Rtfm extends Plugin
 							p.sendMessage(Colors.Yellow + "Maybe you should try reading /motd too!");
 					}
 				}
+				
+				etc.getLoader().callCustomHook("award achievement", new Object[] {player.getName(), "RTFM"});
 	
 				player.sendMessage(Colors.Rose + "You can now build (with certain exceptions)!");
 				player.sendMessage(Colors.Yellow + "Certain areas are protected from building (like spawn).");
@@ -60,7 +62,6 @@ public class Rtfm extends Plugin
 				player.sendMessage(Colors.Yellow + "Visit the web site in /motd for rules and pictures.");
 				player.sendMessage(Colors.Rose + "Helpful commands: /help, /spawn, /kit, /listwarps, /who");
 				
-				etc.getLoader().callCustomHook("award achievement", new Object[] {player.getName(), "rtfm"});
 				return true;
 			}
 			return false;
