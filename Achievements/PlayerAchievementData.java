@@ -3,11 +3,13 @@ public class PlayerAchievementData
 {
 	private String name;
 	private int count;
+	private boolean notified;
 	
 	PlayerAchievementData(String name, int count)
 	{
 		this.name = name;
 		this.count = count;
+		this.notified = false;
 	}
 	
 	public int getCount()
@@ -23,6 +25,11 @@ public class PlayerAchievementData
 	public void incrementCount()
 	{
 		this.count++;
+	}
+	
+	public void notified()
+	{
+		this.notified = true;
 	}
 	
 	public String toString()
