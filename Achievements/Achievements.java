@@ -21,10 +21,12 @@ import net.minecraft.server.MinecraftServer;
 public class Achievements extends Plugin
 {
    private String name = "Achievements";
-   private int version = 5;
+   private int version = 6;
    private boolean stopTimer = false;
    private String directory = "achievements";
    private String listLocation = "achievements.txt";
+	private String color = MyColors.LightBlue;
+   private String prefix = "ACHIEVEMENT: ";
    private int delay = 300;
    private HashMap<String, AchievementListData> achievementList = new HashMap<String, AchievementListData>();
    private HashMap<String, HashMap<String, PlayerAchievementData>> playerAchievements = new HashMap<String, HashMap<String, PlayerAchievementData>>();
@@ -59,8 +61,8 @@ public class Achievements extends Plugin
 
 	private void sendAchievementMessage(Player p, AchievementListData ach)
 	{
-		broadcast(Colors.LightBlue + "ACHIEVEMENT: " + p.getName() + " has been awarded " + ach.getName() + "!");
-		p.sendMessage(Colors.LightBlue + "(" + ach.getDescription() + ")");
+		broadcast(MyColors.codeToColor(color) + prefix + p.getName() + " has been awarded " + ach.getName() + "!");
+		p.sendMessage(MyColors.codeToColor(color) + "(" + ach.getDescription() + ")");
 	}
 
    private void checkStats()
@@ -308,6 +310,8 @@ public class Achievements extends Plugin
          directory = properties.getString("achievements-directory", "achievements");
          listLocation = properties.getString("achievements-list", "achievements.txt");
          delay = properties.getInt("achievements-delay", 300);
+			prefix = properties.getString("achievements-prefix", "ACHIEVEMENT: ");
+         color = properties.getString("achievements-color", MyColors.LightBlue);
       } 
          catch (Exception e) {
             log.log(Level.SEVERE, "Exception while reading from server.properties", e);
@@ -410,13 +414,13 @@ public class Achievements extends Plugin
 					PlayerAchievementData pad = playerAchievements.get(player.getName()).get(p);
 	         	AchievementListData ach = achievementList.get(pad.getName());
 					if (ach == null) {
-						player.sendMessage(Colors.LightBlue + pad.getName() + " (OLD)");
+						player.sendMessage(MyColors.codeToColor(color) + pad.getName() + " (OLD)");
 						continue;
 					}
 	         	if (pad.getCount() > 1)
-	         		player.sendMessage(Colors.LightBlue + pad.getName() + " (" + pad.getCount() + "): " + ach.getDescription());
+	         		player.sendMessage(MyColors.codeToColor(color) + pad.getName() + " (" + pad.getCount() + "): " + ach.getDescription());
 	         	else
-	         		player.sendMessage(Colors.LightBlue + pad.getName() + ": " + ach.getDescription());
+	         		player.sendMessage(MyColors.codeToColor(color) + pad.getName() + ": " + ach.getDescription());
 	         }
 	         return true;
 	      }
@@ -424,7 +428,7 @@ public class Achievements extends Plugin
 				player.sendMessage(Colors.Rose + "Enabled Name Maxawards Category Key Value");
 				for (String name: achievementList.keySet()) {
 					AchievementListData ach = achievementList.get(name);
-					player.sendMessage(Colors.LightBlue + ach.isEnabled() + " " + ach.getName() + " " + ach.getMaxawards() + " " + ach.getCategory() + " " + ach.getKey() + " " + ach.getValue());
+					player.sendMessage(MyColors.codeToColor(color) + ach.isEnabled() + " " + ach.getName() + " " + ach.getMaxawards() + " " + ach.getCategory() + " " + ach.getKey() + " " + ach.getValue());
 				}
 	         return true;
 	      }
