@@ -27,7 +27,7 @@ public class Achievements extends Plugin
    private String listLocation = "achievements.txt";
    private int delay = 300;
    private HashMap<String, AchievementListData> achievementList = new HashMap<String, AchievementListData>();
-   private HashMap<String, HashSet<PlayerAchievementData>> playerAchievements = new HashMap<String, HashSet<PlayerAchievementData>>();
+   private HashMap<String, HashMap<String, PlayerAchievementData>> playerAchievements = new HashMap<String, HashMap<String, PlayerAchievementData>>();
 	
    static final Logger log = Logger.getLogger("Minecraft");
 
@@ -52,6 +52,16 @@ public class Achievements extends Plugin
 	{
       stopTimer = true;
    }
+	
+	public void checkNotifications(Player player)
+	{
+	}
+
+	private void sendAchievementMessage(Player p, AchievementListData ach)
+	{
+		broadcast(Colors.LightBlue + "ACHIEVEMENT: " + p.getName() + " has been awarded " + ach.getName() + "!");
+		p.sendMessage(Colors.LightBlue + "(" + ach.getDescription() + ")");
+	}
 
    private void checkStats()
    {
@@ -72,14 +82,7 @@ public class Achievements extends Plugin
           	if (playerValue < ach.getValue()) // doesn't meet requirements, skip
            		continue;
 
-				PlayerAchievementData pad = null;
-				
-				for (PlayerAchievementData tpad: playerAchievements.get(p.getName())) {
-					if (tpad.getName().equals(ach.getName())) {
-						pad = tpad;
-						break;
-					}
-				}
+				PlayerAchievementData pad = playerAchievements.get(p.getName()).get(ach.getName());
 
 				//award achievement
 				if (pad != null) {
@@ -93,18 +96,59 @@ public class Achievements extends Plugin
 					pad.incrementCount();							
 				} else {
 					// not already found
-          		playerAchievements.get(p.getName()).add(new PlayerAchievementData(ach.getName(), 1));
+					pad = new PlayerAchievementData(ach.getName(), 1);
+          		playerAchievements.get(p.getName()).put(ach.getName(), pad);
 				}
 
-            broadcast(Colors.LightBlue + "ACHIEVEMENT: " + p.getName() + " has been awarded " + ach.getName() + "!");
-            p.sendMessage(Colors.LightBlue + "(" + ach.getDescription() + ")");
-				
+				sendAchievementMessage(p, ach);
+				pad.notified();
             savePlayerAchievements(p.getName());
-				
+
 				ach.commands.run(p);
          }
       }
    }
+
+	private void awardAchievement(String player, String achievement)
+	{
+		if (!playerAchievements.containsKey(player))
+            loadPlayerAchievements(player);
+
+		AchievementListData ach = achievementList.get(achievement);
+		if (ach == null) {
+			error("unable to award (not found): " + achievement + " for: " + player);
+			return;
+		}
+		PlayerAchievementData pad;
+		
+		if (!playerAchievements.get(player).containsKey(achievement))
+		{
+			pad = new PlayerAchievementData(achievement, 1);
+			playerAchievements.get(player).put(achievement, pad);
+		}
+		else
+		{
+			pad = playerAchievements.get(player).get(achievement);
+			if (pad.getCount() < ach.getMaxawards())
+				pad.incrementCount();
+			else
+				return;
+		}
+		
+		Player p = etc.getServer().matchPlayer(player);
+		if (p == null)
+		{
+			info("awarded: " + ach.getName() + " to offline player: " + player);
+		}
+		else
+		{
+			sendAchievementMessage(p, ach);
+			ach.commands.run(p);
+			pad.notified();
+		}
+
+		savePlayerAchievements(player);
+	}
 
    private void saveAchievementList()
    {
@@ -148,11 +192,12 @@ public class Achievements extends Plugin
          saveAchievementList();
          return;
       }
+		String line = "";
       try {
          Scanner scanner =	new Scanner(new File(listLocation));
          while	(scanner.hasNextLine())
          {
-            String line =	scanner.nextLine();
+            line = scanner.nextLine();
             if (line.startsWith("#") || line.equals(""))
                continue;
             String[] split = line.split(":");
@@ -170,9 +215,9 @@ public class Achievements extends Plugin
          }
          scanner.close();
       } 
-         catch (Exception e) {
-            log.log(Level.SEVERE, "Exception	while	reading " +	listLocation, e);
-         }
+      catch (Exception e) {
+      	log.log(Level.SEVERE, "Exception while reading " + listLocation + " (" + line + ")", e);
+      }
       if (achievementList.isEmpty())
          disable();
    }
@@ -182,12 +227,12 @@ public class Achievements extends Plugin
       String location = directory + "/" + player + ".txt";
       BufferedWriter writer = null;
       try {
-         log.info("Saving " + location);
          writer = new BufferedWriter(new	FileWriter(location));
          writer.write("# " + location);
          writer.newLine();
-         for (PlayerAchievementData pad: playerAchievements.get(player))
+         for (String p: playerAchievements.get(player).keySet())
          {
+				PlayerAchievementData pad = playerAchievements.get(player).get(p);
             writer.write(pad.toString());
             writer.newLine();
          }
@@ -210,7 +255,7 @@ public class Achievements extends Plugin
    {
       if (playerAchievements.containsKey(player))
          playerAchievements.remove(player);
-      playerAchievements.put(player, new HashSet<PlayerAchievementData>());
+      playerAchievements.put(player, new HashMap<String, PlayerAchievementData>());
    
       String location = directory + "/" + player + ".txt";
       if (!new File(location).exists())
@@ -230,7 +275,7 @@ public class Achievements extends Plugin
             int count = 1;
             if (split.length >= 2)
                count = Integer.parseInt(split[1]);
-            playerAchievements.get(player).add(new PlayerAchievementData(split[0], count));
+            playerAchievements.get(player).put(split[0], new PlayerAchievementData(split[0], count));
          }
          scanner.close();
       } 
@@ -334,7 +379,7 @@ public class Achievements extends Plugin
 			String playername = (String)parameters[0];
 			String achievement = (String)parameters[1];
 			
-			info(playername + " " + achievement);
+			awardAchievement(playername, achievement);			
 			return false;
 		}
 	}
@@ -345,6 +390,7 @@ public class Achievements extends Plugin
 	   public void onLogin(Player player)
 	   {
 	      loadPlayerAchievements(player.getName());
+			checkNotifications(player);
 	   }
 	
 	   public void onDisconnect(Player player)
@@ -359,8 +405,9 @@ public class Achievements extends Plugin
 	            player.sendMessage(Colors.Rose + "You have no achievements.");
 	            return true;
 	         }
-	         for (PlayerAchievementData pad: playerAchievements.get(player.getName()))
+	         for (String p: playerAchievements.get(player.getName()).keySet())
 	         {
+					PlayerAchievementData pad = playerAchievements.get(player.getName()).get(p);
 	         	AchievementListData ach = achievementList.get(pad.getName());
 					if (ach == null) {
 						player.sendMessage(Colors.LightBlue + pad.getName() + " (OLD)");
