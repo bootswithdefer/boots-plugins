@@ -19,11 +19,12 @@ import net.minecraft.server.MinecraftServer;
 public class Stats extends Plugin
 {
 	private String name = "Stats";
-	private int version = 5;
+	private int version = 6;
 	private PlayerMap playerStats = new PlayerMap();
 	private boolean stopTimer = false;
 	private String directory = "stats";
 	private int savedelay = 30;
+	private String[] ignoredGroups = new String[] {""};
    private HashMap<String, AgeBlock> tBlocks = new HashMap<String, AgeBlock>();
 
 	static final Logger log	= Logger.getLogger("Minecraft");
@@ -53,6 +54,8 @@ public class Stats extends Plugin
 		PropertiesFile properties	= new	PropertiesFile("server.properties");
 		try {
 			directory = properties.getString("stats-directory", "stats");
+			String s = properties.getString("stats-ignored-groups", "");
+			ignoredGroups = s.split(",");
 			savedelay = properties.getInt("stats-save-delay", 30);
 		} catch (Exception e) {
 			log.log(Level.SEVERE, "Exception	while	reading from server.properties",	e);
@@ -82,6 +85,7 @@ public class Stats extends Plugin
 		etc.getLoader().addListener(PluginLoader.Hook.ARM_SWING, listener, this, PluginListener.Priority.LOW);
 		
 		etc.getLoader().addCustomListener(new StatsGet());
+		etc.getLoader().addCustomListener(new StatsSet());
 	}
 
 	private void updateStat(Player player, String statType)
@@ -120,11 +124,15 @@ public class Stats extends Plugin
 
 	private void load(Player player)
 	{
+		if (inIgnoredGroup(player))
+			return;
 		playerStats.load(directory, player.getName());
 	}
-	
+
 	private void unload(Player player)
 	{
+		if (inIgnoredGroup(player))
+			return;
 		playerStats.unload(directory, player.getName());
 	}
 	
@@ -149,6 +157,15 @@ public class Stats extends Plugin
 
 		if (count > 0)
 			log.info(name + " old blocks cleaned: " + count);
+	}
+	
+	private boolean inIgnoredGroup(Player player)
+	{
+		for (String g: ignoredGroups) {
+			if (player.isInGroup(g))
+				return true;
+		}
+		return false;
 	}
 	
 	// custom listener class
@@ -193,7 +210,53 @@ public class Stats extends Plugin
 			return data;
 		}
 	}
-	
+	public class StatsSet implements PluginInterface
+	{
+		public String getName() { return "set stat"; }
+		public int getNumParameters() { return 4; }
+
+		public String checkParameters(Object[] parameters)
+		{
+			boolean good;
+
+			if (parameters.length != getNumParameters())
+				return getName() + ": incorrect number of parameters, got: " + parameters.length + " expected: " + getNumParameters();
+			
+			good = false;
+			if (parameters[0] instanceof String)
+				good = true;
+			if (!good)
+				return getName() + ": parameter 0 should be String";
+			good = false;
+			if (parameters[1] instanceof String)
+				good = true;
+			if (!good)
+				return getName() + ": parameter 1 should be String";
+			good = false;
+			if (parameters[2] instanceof String)
+				good = true;
+			if (!good)
+				return getName() + ": parameter 2 should be String";
+			good = false;
+			if (parameters[3] instanceof Integer)
+				good = true;
+			if (!good)
+				return getName() + ": parameter 3 should be Integer";
+				
+			return null;
+		}
+
+		public Object run(Object[] parameters)
+		{
+			String name = (String)parameters[0];
+			String category = (String)parameters[1];
+			String key = (String)parameters[2];
+			Integer value = (Integer)parameters[3];
+			
+			updateStat(name, category, key, value);
+			return true;
+		}
+	}
 	// Listener Class
 	public class StatsListener extends PluginListener
 	{
