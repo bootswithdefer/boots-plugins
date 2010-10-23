@@ -119,6 +119,7 @@ public class Warn extends Plugin
 				warnings.put(target.getName(), warning);
 				sendWarning(target, warning);
 				player.sendMessage("You warn " + target.getName() + ".");
+				etc.getLoader().callCustomHook("set stat", new Object[] {player.getName(), "warn", "count", 1});
 				return true;
 			}
 			if (split[0].equalsIgnoreCase("/unwarn")) {
