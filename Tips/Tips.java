@@ -15,7 +15,7 @@ import net.minecraft.server.MinecraftServer;
 
 public class Tips extends Plugin {
    private String name = "Tips";
-	private int version = 4;
+	private int version = 6;
    private String location = "tips.txt";
    private String  color = MyColors.LightBlue;
    private String  prefix = "TIP: ";
@@ -167,12 +167,26 @@ public class Tips extends Plugin {
 	{
 		TipsListener listener = new TipsListener();
 		etc.getLoader().addListener(PluginLoader.Hook.COMMAND, listener, this, PluginListener.Priority.LOW);
+		etc.getLoader().addListener(PluginLoader.Hook.SERVERCOMMAND, listener, this, PluginListener.Priority.LOW);
 	}
 	
 	public class TipsListener extends PluginListener
 	{
+		public boolean onConsoleCommand(String[] split)
+		{
+		   if (split[0].equalsIgnoreCase("reloadtips")) {
+	         loadTips();
+				log.info("Tips reloaded.");
+	         return true;
+	      }
+			return false;
+		}
+	
 	   public boolean onCommand(Player player, String[] split)
 		{
+			if (!player.canUseCommand(split[0]))
+				return false;
+
 	      if (split[0].equalsIgnoreCase("/addtip")) {
 	         if (split.length < 2) {
 	            player.sendMessage(Colors.Rose + "Usage: /addtip [tip]");
