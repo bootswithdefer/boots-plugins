@@ -21,7 +21,7 @@ import net.minecraft.server.MinecraftServer;
 public class Achievements extends Plugin
 {
    private String name = "Achievements";
-   private int version = 6;
+   private int version = 7;
    private boolean stopTimer = false;
    private String directory = "achievements";
    private String listLocation = "achievements.txt";
@@ -424,7 +424,11 @@ public class Achievements extends Plugin
 	         }
 	         return true;
 	      }
-			else if (split[0].equalsIgnoreCase("/listachievements")) {
+			
+			if (!player.canUseCommand(split[0]))
+				return false;
+
+			if (split[0].equalsIgnoreCase("/listachievements")) {
 				player.sendMessage(Colors.Rose + "Enabled Name Maxawards Category Key Value");
 				for (String name: achievementList.keySet()) {
 					AchievementListData ach = achievementList.get(name);

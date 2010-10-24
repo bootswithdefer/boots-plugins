@@ -10,7 +10,7 @@ import net.minecraft.server.MinecraftServer;
 public class Warn extends Plugin
 {
 	private String name = "Warn";
-	private int version = 2;
+	private int version = 3;
 	private int delay = 10;
 	private boolean running = false;
 
@@ -97,6 +97,14 @@ public class Warn extends Plugin
 	{
 		public boolean onCommand(Player player, String[] split)
 		{
+			if (split[0].equalsIgnoreCase("/acknowledge")) {
+				ackWarning(player);
+				return true;
+			}
+
+			if (!player.canUseCommand(split[0]))
+				return false;
+				
 			if (split[0].equalsIgnoreCase("/warn")) {
 				if (split.length < 3) {
 					player.sendMessage(Colors.Rose + "Usage: /warn [player] [message]");
@@ -136,10 +144,6 @@ public class Warn extends Plugin
 				for (String s: warnings.keySet()) {
 					player.sendMessage(Colors.LightBlue + warnings.get(s).toString());
 				}
-				return true;
-			}
-			if (split[0].equalsIgnoreCase("/acknowledge")) {
-				ackWarning(player);
 				return true;
 			}
 			return false;
