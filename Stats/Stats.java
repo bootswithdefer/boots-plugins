@@ -19,13 +19,12 @@ import net.minecraft.server.MinecraftServer;
 public class Stats extends Plugin
 {
 	private String name = "Stats";
-	private int version = 6;
+	private int version = 7;
 	private PlayerMap playerStats = new PlayerMap();
 	private boolean stopTimer = false;
 	private String directory = "stats";
 	private int savedelay = 30;
 	private String[] ignoredGroups = new String[] {""};
-   private HashMap<String, AgeBlock> tBlocks = new HashMap<String, AgeBlock>();
 
 	static final Logger log	= Logger.getLogger("Minecraft");
 
@@ -40,7 +39,6 @@ public class Stats extends Plugin
 						return;
 					}
 					save();
-					clean();
 				}
 			},	3000,	savedelay*1000);
 	}
@@ -71,6 +69,8 @@ public class Stats extends Plugin
 
 	public void initialize()
 	{
+		log.info(name + " initializing.");
+	
 		StatsListener listener = new StatsListener();
 		etc.getLoader().addListener(PluginLoader.Hook.LOGIN, listener, this, PluginListener.Priority.LOW);
 		etc.getLoader().addListener(PluginLoader.Hook.CHAT, listener, this, PluginListener.Priority.LOW);
@@ -78,14 +78,18 @@ public class Stats extends Plugin
 		etc.getLoader().addListener(PluginLoader.Hook.BAN, listener, this, PluginListener.Priority.LOW);
 		etc.getLoader().addListener(PluginLoader.Hook.IPBAN, listener, this, PluginListener.Priority.LOW);
 		etc.getLoader().addListener(PluginLoader.Hook.KICK, listener, this, PluginListener.Priority.LOW);
-		etc.getLoader().addListener(PluginLoader.Hook.BLOCK_PRE_MODIFY, listener, this, PluginListener.Priority.CRITICAL);
-		etc.getLoader().addListener(PluginLoader.Hook.BLOCK_POST_MODIFY, listener, this, PluginListener.Priority.LOW);
+		etc.getLoader().addListener(PluginLoader.Hook.BLOCK_DESTROYED, listener, this, PluginListener.Priority.LOW);
+		etc.getLoader().addListener(PluginLoader.Hook.BLOCK_CREATED, listener, this, PluginListener.Priority.LOW);
 		etc.getLoader().addListener(PluginLoader.Hook.DISCONNECT, listener, this, PluginListener.Priority.LOW);
 		etc.getLoader().addListener(PluginLoader.Hook.PLAYER_MOVE, listener, this, PluginListener.Priority.LOW);
 		etc.getLoader().addListener(PluginLoader.Hook.ARM_SWING, listener, this, PluginListener.Priority.LOW);
 		
-		etc.getLoader().addCustomListener(new StatsGet());
-		etc.getLoader().addCustomListener(new StatsSet());
+		try {
+			etc.getLoader().addCustomListener(new StatsGet());
+			etc.getLoader().addCustomListener(new StatsSet());
+		} catch (NoClassDefFoundError ex) {
+			log.info("no class def");
+		}
 	}
 
 	private void updateStat(Player player, String statType)
@@ -139,24 +143,6 @@ public class Stats extends Plugin
 	private void save()
 	{
 		playerStats.saveAll(directory);
-	}
-	
-	private void clean()
-	{
-		long now = System.currentTimeMillis();
-		int count = 0;
-
-		for (Iterator<Map.Entry<String, AgeBlock>> it = tBlocks.entrySet().iterator(); it.hasNext();)
-		{
-    		Map.Entry<String, AgeBlock> entry = it.next();
-    		if(entry.getValue().isOld(now)) {
-         	it.remove();
-				count++;
-			}
-		}
-
-		if (count > 0)
-			log.info(name + " old blocks cleaned: " + count);
 	}
 	
 	private boolean inIgnoredGroup(Player player)
@@ -305,30 +291,28 @@ public class Stats extends Plugin
 			updateStat(player, "kick");
 		}
 
-		public void onBlockPreModify(Player player, Block blockAt, int itemInHand)
+		public boolean onBlockCreate(Player player, Block blockPlaced, Block blockClicked, int itemInHand)
 		{
-			String bKey = player.getName() + " " + blockAt.getX() + " " + blockAt.getY() + " " + blockAt.getZ();
-			tBlocks.put(bKey, new AgeBlock(blockAt));
+			Block before = new Block(etc.getServer().getBlockIdAt(blockPlaced.getX(), blockPlaced.getY(), blockPlaced.getZ()), blockPlaced.getX(), blockPlaced.getY(), blockPlaced.getZ());
+			
+			if (before.getType() == blockPlaced.getType())
+				return false;
+				
+			updateStat(player, "blockcreate", blockPlaced);
+			updateStat(player, "blockdestroy", before);
+			return false;
 		}
 		
-		public void onBlockPostModify(Player player, Block blockAt, int itemInHand)
+		public boolean onBlockDestroy(Player player, Block blockAt)
 		{
-//			Block b1 = blockAt;
-//			log.info("oBPM: post " + etc.getDataSource().getItem(b1.getType()) + "(" + b1.getX() + "," + b1.getY() + "," + b1.getZ() + ")");
+			Block before = new Block(etc.getServer().getBlockIdAt(blockAt.getX(), blockAt.getY(), blockAt.getZ()), blockAt.getX(), blockAt.getY(), blockAt.getZ());
 			
-			// get block from previous onBlockPreModify
-			String bKey = player.getName() + " " + blockAt.getX() + " " + blockAt.getY() + " " + blockAt.getZ();
-			AgeBlock aBlock = tBlocks.get(bKey);
-			if (aBlock == null)
-				return;
-			tBlocks.remove(bKey);
-
-			// if blocks are the same do nothing
-			if (blockAt.getType() == aBlock.block.getType())
-				return;
-
-			updateStat(player, "blockcreate", blockAt);
-			updateStat(player, "blockdestroy", aBlock.block);
+			if (before.getType() == blockAt.getType())
+				return false;
+				
+			updateStat(player, "blockdestroy", blockAt);
+			updateStat(player, "blockcreate", before);
+			return false;
 		}
 		
 		public void onArmSwing(Player player)
