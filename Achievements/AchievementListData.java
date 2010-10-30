@@ -9,8 +9,9 @@ public class AchievementListData
 	private String description;
 	private int maxawards;
 	public CommandHandler commands;
+	public Conditionals conditions;
 	
-	AchievementListData(int enabled, String name, int maxawards, String category, String key, int value, String description, String commands)
+	AchievementListData(int enabled, String name, int maxawards, String category, String key, int value, String description, String commands, String conditionals)
 	{
 		if (enabled > 0)
 			this.enabled = true;
@@ -23,6 +24,7 @@ public class AchievementListData
 		this.description = description;
 		this.maxawards = maxawards;
 		this.commands = new CommandHandler(commands);
+		this.conditions = new Conditionals(conditionals);
 	}
 	
 	public String getName()
@@ -67,8 +69,7 @@ public class AchievementListData
 	   if (isEnabled())
 			en = 1;
 		ret = en + ":" + name + ":" + maxawards + ":" + category + ":" + key + ":" + value + ":" + description;
-		if (!commands.isEmpty())
-			ret = ret + ":" + commands.toString();
+		ret = ret + ":" + commands.toString() + ":" + conditions.toString();
 		return ret;
 	}
 }

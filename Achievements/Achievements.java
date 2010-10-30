@@ -21,7 +21,7 @@ import net.minecraft.server.MinecraftServer;
 public class Achievements extends Plugin
 {
    private String name = "Achievements";
-   private int version = 7;
+   private int version = 8;
    private boolean stopTimer = false;
    private String directory = "achievements";
    private String listLocation = "achievements.txt";
@@ -64,6 +64,20 @@ public class Achievements extends Plugin
 		broadcast(MyColors.codeToColor(color) + prefix + p.getName() + " has been awarded " + ach.getName() + "!");
 		p.sendMessage(MyColors.codeToColor(color) + "(" + ach.getDescription() + ")");
 	}
+	
+	public boolean hasAchievement(Player p, AchievementListData ach)
+	{
+		if (ach == null)
+			return false;
+		if (playerAchievements.get(p.getName()).containsKey(ach.getName()))
+			return true;
+		return false;
+	}
+
+	public AchievementListData getAchievement(String name)
+	{
+		return achievementList.get(name);
+	}
 
    private void checkStats()
    {
@@ -76,6 +90,9 @@ public class Achievements extends Plugin
          {
             AchievementListData ach = achievementList.get(name2);
 				if (!ach.isEnabled()) // disabled, skip
+					continue;
+
+				if (!ach.conditions.meets(p, this))
 					continue;
 
 				Object ret = etc.getLoader().callCustomHook("get stat", new Object[] {p.getName(), ach.getCategory(), ach.getKey()});
@@ -213,7 +230,10 @@ public class Achievements extends Plugin
 				String commands = null;
 				if (split.length == 8)
 					commands = split[7];
-            achievementList.put(split[1], new AchievementListData(enabled, split[1], maxawards, split[3], split[4], value, split[6], commands));
+				String conditions = null;
+				if (split.length == 9)
+					conditions = split[8];
+            achievementList.put(split[1], new AchievementListData(enabled, split[1], maxawards, split[3], split[4], value, split[6], commands, conditions));
          }
          scanner.close();
       } 

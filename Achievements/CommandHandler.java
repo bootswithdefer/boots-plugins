@@ -18,6 +18,8 @@ public class CommandHandler
 		String[] split = commands.split(";");
 		for (String c: split)
 		{
+			if (c.length() <= 1)
+				continue;
 			String[] s = c.split(" ");
 			if (s.length < 2) {
 				log.log(Level.SEVERE, "Invalid command " + c);
