@@ -52,7 +52,7 @@ public class Stats extends Plugin
 		PropertiesFile properties	= new	PropertiesFile("server.properties");
 		try {
 			directory = properties.getString("stats-directory", "stats");
-			String s = properties.getString("stats-ignored-groups", "");
+			String s = properties.getString("stats-ignored-groups", "default");
 			ignoredGroups = s.split(",");
 			savedelay = properties.getInt("stats-save-delay", 30);
 		} catch (Exception e) {
@@ -305,13 +305,13 @@ public class Stats extends Plugin
 		
 		public boolean onBlockDestroy(Player player, Block blockAt)
 		{
-			Block before = new Block(etc.getServer().getBlockIdAt(blockAt.getX(), blockAt.getY(), blockAt.getZ()), blockAt.getX(), blockAt.getY(), blockAt.getZ());
+			Block after = new Block(etc.getServer().getBlockIdAt(blockAt.getX(), blockAt.getY(), blockAt.getZ()), blockAt.getX(), blockAt.getY(), blockAt.getZ());
 			
-			if (before.getType() == blockAt.getType())
+			if (after.getType() == blockAt.getType())
 				return false;
 				
 			updateStat(player, "blockdestroy", blockAt);
-			updateStat(player, "blockcreate", before);
+			updateStat(player, "blockcreate", after);
 			return false;
 		}
 		
