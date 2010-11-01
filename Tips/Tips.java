@@ -15,7 +15,7 @@ import net.minecraft.server.MinecraftServer;
 
 public class Tips extends Plugin {
    private String name = "Tips";
-	private int version = 6;
+	private int version = 7;
    private String location = "tips.txt";
    private String  color = MyColors.LightBlue;
    private String  prefix = "TIP: ";
@@ -46,9 +46,9 @@ public class Tips extends Plugin {
       stopTimer = true;
    }
 
-   private String splittoline(String[] split) {
+   private String splittoline(String[] split, int start) {
       String line = "";
-      for (int i=1; i<split.length; i++) {
+      for (int i=start; i<split.length; i++) {
           line = line + split[i];
           if (i < split.length-1)
          line = line + " ";
@@ -148,11 +148,6 @@ public class Tips extends Plugin {
 		else if (prefix.charAt(prefix.length()-1) != ' ')
 			prefix = prefix + " ";
       etc.getInstance().addCommand("/tip", " - display a random tip.");
-      etc.getInstance().addCommand("/addtip", " [tip] - Add a tip.");
-      etc.getInstance().addCommand("/deltip", " [tipnum] - Delete a tip.");
-      etc.getInstance().addCommand("/findtip", " - Delete a tip.");
-      etc.getInstance().addCommand("/btip", " [tipnum] - Broadcast a tip.");
-      etc.getInstance().addCommand("/reloadtips", " - Reload tips from file.");
       loadTips();
       startTimer();
       log.info(name + " v" + version + " Mod Enabled.");
@@ -184,28 +179,36 @@ public class Tips extends Plugin {
 	
 	   public boolean onCommand(Player player, String[] split)
 		{
-			if (!player.canUseCommand(split[0]))
+			if (!split[0].equalsIgnoreCase("/tip"))
 				return false;
 
-	      if (split[0].equalsIgnoreCase("/addtip")) {
-	         if (split.length < 2) {
-	            player.sendMessage(Colors.Rose + "Usage: /addtip [tip]");
+			if (split.length == 1 || !player.canUseCommand("/tipadmin")) {
+				if (generator == null)
+					generator = new Random();
+				int tipNum = generator.nextInt(tips.size());
+	         player.sendMessage(MyColors.codeToColor(color) + prefix + tips.get(tipNum));
+	         return true;
+	      }
+
+	      if (split[1].equalsIgnoreCase("add")) {
+	         if (split.length < 3) {
+	            player.sendMessage(Colors.Rose + "Usage: /tip add [tip]");
 	            return true;
 	         }
-	         String line = splittoline(split);
+	         String line = splittoline(split, 2);
 	         tips.add(line);
 	         saveTips();
 	         player.sendMessage(Colors.Rose + "Added.");
 	         return true;
-	      }
-	      else if (split[0].equalsIgnoreCase("/deltip")) {
+			}
+			if (split[1].equalsIgnoreCase("del")) {
 	         int tip = -1;
-	         if (split.length < 2) {
-	            player.sendMessage(Colors.Rose + "Usage: /deltip [tip number]");
+	         if (split.length < 3) {
+	            player.sendMessage(Colors.Rose + "Usage: /tip del [tip number]");
 	            return true;
 	         }
 	         try {
-	            tip = Integer.parseInt(split[1]);
+	            tip = Integer.parseInt(split[2]);
 	         } catch (NumberFormatException ex) {
 	            tip = -1;
 	         }
@@ -218,12 +221,12 @@ public class Tips extends Plugin {
 	         player.sendMessage(Colors.Rose + "Deleted.");
 	         return true;
 	      }
-	      else if (split[0].equalsIgnoreCase("/findtip")) {
-	         if (split.length < 2) {
-	            player.sendMessage(Colors.Rose + "Usage: /findtip [text to search]");
+	      if (split[1].equalsIgnoreCase("find")) {
+	         if (split.length < 3) {
+	            player.sendMessage(Colors.Rose + "Usage: /tip find [text to search]");
 	            return true;
 	         }
-	         String line = splittoline(split);
+	         String line = splittoline(split, 2);
 	         int tip = findtip(line);
 	         if (tip == -1) {
 	            player.sendMessage(Colors.Rose + "Not tip found containing '" + line + "'.");
@@ -232,14 +235,14 @@ public class Tips extends Plugin {
 	         player.sendMessage(MyColors.codeToColor(color) + prefix + tip + ": " + tips.get(tip));
 	         return true;
 	      }
-	      else if (split[0].equalsIgnoreCase("/btip")) {
+	      if (split[1].equalsIgnoreCase("b")) {
 	         int tip = -1;
-	         if (split.length < 2) {
-	            player.sendMessage(Colors.Rose + "Usage: /btip [tip number]");
+	         if (split.length < 3) {
+	            player.sendMessage(Colors.Rose + "Usage: /tip b [tip number]");
 	            return true;
 	         }
 	         try {
-	            tip = Integer.parseInt(split[1]);
+	            tip = Integer.parseInt(split[2]);
 	         } catch (NumberFormatException ex) {
 	            tip = -1;
 	         }
@@ -250,19 +253,18 @@ public class Tips extends Plugin {
 				broadcastTip(tip);
 	         return true;
 	      }
-	      else if (split[0].equalsIgnoreCase("/reloadtips")) {
+	      if (split[1].equalsIgnoreCase("reload")) {
 	         loadTips();
 	         player.sendMessage(Colors.Rose + "Tips reloaded.");
 	         return true;
 	      }
-	      else if (split[0].equalsIgnoreCase("/tip")) {
-				if (generator == null)
-					generator = new Random();
-				int tipNum = generator.nextInt(tips.size());
-	         player.sendMessage(MyColors.codeToColor(color) + prefix + tips.get(tipNum));
-	         return true;
-	      }
-	      return false;
+			
+			player.sendMessage(Colors.Rose + "Usage: /tip add [text]");
+			player.sendMessage(Colors.Rose + "Usage: /tip del [tip num]");
+			player.sendMessage(Colors.Rose + "Usage: /tip find [text]");
+			player.sendMessage(Colors.Rose + "Usage: /tip b [tip num]");
+			player.sendMessage(Colors.Rose + "Usage: /tip reload");
+	      return true;
 	   }
 	}
 }
