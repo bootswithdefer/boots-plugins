@@ -12,12 +12,13 @@ import net.minecraft.server.MinecraftServer;
 public class LogBlock extends Plugin
 {
 	private String name = "LogBlock";
-	private int version = 5;
+	private int version = 6;
 	private String dbDriver = "com.mysql.jdbc.Driver";
 	private String dbUrl = "";
 	private String dbUsername = "";
 	private String dbPassword = "";
 	private int delay = 10;
+	private int defaultDist = 20;
 	private int toolID = 270; // 270 is wood pick
 	private Consumer consumer = null;
 	
@@ -35,6 +36,7 @@ public class LogBlock extends Plugin
 			dbPassword = properties.getString("password", "pass");
 			delay = properties.getInt("delay", 10);
 			toolID = properties.getInt("tool-id", 270);
+			defaultDist = properties.getInt("default-distance", 20);
 		} catch (Exception ex) {
 			log.log(Level.SEVERE, "Exception	while	reading from logblock.properties",	ex);
 		}
@@ -99,7 +101,7 @@ public class LogBlock extends Plugin
 			while (rs.next())
 			{
 				String msg = rs.getString("date") + " " + rs.getString("player") + " " + rs.getString("action") + " " + etc.getDataSource().getItem(rs.getInt("type"));
-				player.sendMessage(Colors.Blue + msg);
+				player.sendMessage(Colors.Gold + msg);
 				hist = true;
 			}
 		} catch (SQLException ex) {
@@ -116,6 +118,117 @@ public class LogBlock extends Plugin
 		if (!hist)
 			player.sendMessage(Colors.Blue + "None.");
 	}
+
+	private void showAreaStats(Player player, int size)
+	{
+		player.sendMessage(Colors.Blue + "Within " + size + " blocks of you: ");
+		player.sendMessage(Colors.Gold + String.format("%-6s %s", "#", "Player"));
+		boolean hist = false;
+		Connection conn = null;
+		PreparedStatement ps = null;
+		ResultSet rs = null;
+		try {
+			conn = getConnection();
+			conn.setAutoCommit(false);
+			ps = conn.prepareStatement("SELECT player, count(player) as num from blocks where x > ? and x < ? and z > ? and z < ? group by player order by count(player) desc limit 10", Statement.RETURN_GENERATED_KEYS);
+			ps.setInt(1, (int)player.getX()-size);
+			ps.setInt(2, (int)player.getX()+size);
+			ps.setInt(3, (int)player.getZ()-size);
+			ps.setInt(4, (int)player.getZ()+size);
+			rs = ps.executeQuery();
+			while (rs.next())
+			{
+				String msg = String.format("%-6d %s", rs.getInt("num"), rs.getString("player"));
+				player.sendMessage(Colors.Gold + msg);
+				hist = true;
+			}
+		} catch (SQLException ex) {
+			log.log(Level.SEVERE, name + " SQL exception", ex);
+		} finally {
+			try {
+				rs.close();
+				ps.close();
+				conn.close();
+			} catch (SQLException ex) {
+				log.log(Level.SEVERE, name + " SQL exception on close", ex);
+			}
+		}
+		if (!hist)
+			player.sendMessage(Colors.Blue + "Nothing.");
+	}
+
+	private void showPlayerAreaStats(Player player, String name, int size)
+	{
+		player.sendMessage(Colors.Blue + "Stats for " + name + ", within " + size + " blocks of you: ");
+		player.sendMessage(Colors.Gold + String.format("%-6s %s", "#", "Block"));
+		boolean hist = false;
+		Connection conn = null;
+		PreparedStatement ps = null;
+		ResultSet rs = null;
+		try {
+			conn = getConnection();
+			conn.setAutoCommit(false);
+			ps = conn.prepareStatement("SELECT type, count(type) as num from blocks where x > ? and x < ? and z > ? and z < ? and player = ? group by type order by count(type) desc limit 10", Statement.RETURN_GENERATED_KEYS);
+			ps.setInt(1, (int)player.getX()-size);
+			ps.setInt(2, (int)player.getX()+size);
+			ps.setInt(3, (int)player.getZ()-size);
+			ps.setInt(4, (int)player.getZ()+size);
+			ps.setString(5, name);
+			rs = ps.executeQuery();
+			while (rs.next())
+			{
+				String msg = String.format("%-6d %s", rs.getInt("num"), etc.getDataSource().getItem(rs.getInt("type")));
+				player.sendMessage(Colors.Gold + msg);
+				hist = true;
+			}
+		} catch (SQLException ex) {
+			log.log(Level.SEVERE, name + " SQL exception", ex);
+		} finally {
+			try {
+				rs.close();
+				ps.close();
+				conn.close();
+			} catch (SQLException ex) {
+				log.log(Level.SEVERE, name + " SQL exception on close", ex);
+			}
+		}
+		if (!hist)
+			player.sendMessage(Colors.Blue + "Nothing.");
+	}
+
+	private void showPlayerWorldStats(Player player)
+	{
+		player.sendMessage(Colors.Blue + "Player stats, entire map: ");
+		player.sendMessage(Colors.Gold + String.format("%-6s %s", "#", "Player"));
+		boolean hist = false;
+		Connection conn = null;
+		PreparedStatement ps = null;
+		ResultSet rs = null;
+		try {
+			conn = getConnection();
+			conn.setAutoCommit(false);
+			ps = conn.prepareStatement("SELECT player, count(player) as num from blocks group by player order by count(player) desc limit 10", Statement.RETURN_GENERATED_KEYS);
+			rs = ps.executeQuery();
+			while (rs.next())
+			{
+				String msg = String.format("%-6d %s", rs.getInt("num"), rs.getString("player"));
+				player.sendMessage(Colors.Gold + msg);
+				hist = true;
+			}
+		} catch (SQLException ex) {
+			log.log(Level.SEVERE, name + " SQL exception", ex);
+		} finally {
+			try {
+				rs.close();
+				ps.close();
+				conn.close();
+			} catch (SQLException ex) {
+				log.log(Level.SEVERE, name + " SQL exception on close", ex);
+			}
+		}
+		if (!hist)
+			player.sendMessage(Colors.Blue + "Nothing.");
+	}
 	
 	public class LBListener extends PluginListener // start
 	{
@@ -125,7 +238,23 @@ public class LogBlock extends Plugin
 				return false;
 				
 	      if (split[0].equalsIgnoreCase("/lb")) {
-			
+				if (split.length == 1) {
+					showAreaStats(player, defaultDist);
+					return true;
+				}
+				if (split.length == 2) {
+					if (split[1].equalsIgnoreCase("world"))
+						showPlayerWorldStats(player);
+					else
+						player.sendMessage(Colors.Rose + "Incorrect usage.");
+					return true;
+				}
+				if (split[1].equalsIgnoreCase("player"))
+					showPlayerAreaStats(player, split[2], defaultDist);
+				else if (split[1].equalsIgnoreCase("area"))
+					showAreaStats(player, Integer.parseInt(split[2]));
+				else
+					player.sendMessage(Colors.Rose + "Incorrect usage.");
 				return true;
 			}
 			return false;
