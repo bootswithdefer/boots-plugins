@@ -76,6 +76,21 @@ public class CommandHandler
 				continue;
 			}
 
+			if (s[0].equalsIgnoreCase("setgroups"))
+			{
+				if (s.length < 2) {
+					log.log(Level.SEVERE, "Bad command (not enough arguments) correct is: setgroup groupnames");
+					continue;
+				}
+				player.setGroups(s[1].split(","));
+				if (!etc.getDataSource().doesPlayerExist(player.getName())) {
+					etc.getDataSource().addPlayer(player);
+			   } else {
+					etc.getDataSource().modifyPlayer(player);
+			   }
+				continue;
+			}
+
 			log.log(Level.SEVERE, "Unknown command " + s[0]);
 		}
 	}
