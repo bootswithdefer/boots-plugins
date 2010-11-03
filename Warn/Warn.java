@@ -10,9 +10,12 @@ import net.minecraft.server.MinecraftServer;
 public class Warn extends Plugin
 {
 	private String name = "Warn";
-	private int version = 3;
+	private int version = 4;
 	private int delay = 10;
 	private boolean running = false;
+	private boolean blockCommands = false;
+	private boolean blockChat = false;
+	private boolean blockMove = true;
 
 	private HashMap<String, WarnData> warnings = new HashMap<String, WarnData>();
 
@@ -67,8 +70,18 @@ public class Warn extends Plugin
 
 	public void initialize()
 	{
+		PropertiesFile properties = new PropertiesFile("server.properties");
+		try {
+			blockCommands = properties.getBoolean("warn-block-commands", false);
+			blockChat = properties.getBoolean("warn-block-chat", false);
+			blockMove = properties.getBoolean("warn-block-move", true);
+		} catch (Exception ex) {
+			log.log(Level.SEVERE, "Exception while reading from server.properties", ex);
+		}
+
 		WarnListener listener = new WarnListener();
-		etc.getLoader().addListener(PluginLoader.Hook.COMMAND, listener, this, PluginListener.Priority.LOW);
+		etc.getLoader().addListener(PluginLoader.Hook.CHAT, listener, this, PluginListener.Priority.HIGH);
+		etc.getLoader().addListener(PluginLoader.Hook.COMMAND, listener, this, PluginListener.Priority.HIGH);
 		etc.getLoader().addListener(PluginLoader.Hook.PLAYER_MOVE, listener, this, PluginListener.Priority.HIGH);
 	}
 	
@@ -102,6 +115,11 @@ public class Warn extends Plugin
 				return true;
 			}
 
+			if (blockCommands && !player.isAdmin()) {
+				if (warnings.get(player.getName()) != null)
+					return true;
+			}
+
 			if (!player.canUseCommand(split[0]))
 				return false;
 				
@@ -119,6 +137,10 @@ public class Warn extends Plugin
 					player.sendMessage(Colors.Rose + "That player is already being warned.");
 					return true;
 				}
+				if (target.isAdmin()) {
+					player.sendMessage(Colors.Rose + "You can't do that to them.");
+					return true;
+				}
 				String message = split[2];
 				for (int i = 3; i < split.length; i++)
 					message = message + " " + split[i];
@@ -127,7 +149,11 @@ public class Warn extends Plugin
 				warnings.put(target.getName(), warning);
 				sendWarning(target, warning);
 				player.sendMessage("You warn " + target.getName() + ".");
-				etc.getLoader().callCustomHook("set stat", new Object[] {player.getName(), "warn", "count", 1});
+				try {
+					etc.getLoader().callCustomHook("set stat", new Object[] {player.getName(), "warn", "count", 1});
+				} catch (NoSuchMethodError ex) {
+					log.info(name + ": no custom hooks in this version (ask Hey0 to add them!)");
+				}
 				return true;
 			}
 			if (split[0].equalsIgnoreCase("/unwarn")) {
@@ -148,11 +174,26 @@ public class Warn extends Plugin
 			}
 			return false;
 		}
+		
 		public void onPlayerMove(Player player, Location from, Location to)
 		{
+			if (player.isAdmin() || !blockMove)
+				return;
+				
 			if (warnings.get(player.getName()) != null) {
 				player.teleportTo(from);
 			}
+		}
+		
+		public boolean onChat(Player player, String message)
+		{
+			if (!blockChat || player.isAdmin())
+				return false;
+
+			if (warnings.get(player.getName()) != null)
+				return true;
+				
+			return false;
 		}
 	}
 }
