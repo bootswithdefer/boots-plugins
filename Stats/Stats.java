@@ -19,7 +19,7 @@ import net.minecraft.server.MinecraftServer;
 public class Stats extends Plugin
 {
 	private String name = "Stats";
-	private int version = 7;
+	private int version = 8;
 	private PlayerMap playerStats = new PlayerMap();
 	private boolean stopTimer = false;
 	private String directory = "stats";
@@ -59,6 +59,11 @@ public class Stats extends Plugin
 			log.log(Level.SEVERE, "Exception	while	reading from server.properties",	e);
 		}
 		startTimer();
+	 	try {
+			new File(directory).mkdir();
+		} catch (Exception e) {
+			log.log(Level.SEVERE, "Exception while creating directory " + directory, e);
+		}
 		log.info(name + " v" + version + " Mod Enabled.");
 	}
 
@@ -88,7 +93,7 @@ public class Stats extends Plugin
 			etc.getLoader().addCustomListener(new StatsGet());
 			etc.getLoader().addCustomListener(new StatsSet());
 		} catch (NoClassDefFoundError ex) {
-			log.info("no class def");
+			log.info(name + "no class def");
 		}
 	}
 

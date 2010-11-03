@@ -84,7 +84,11 @@ public class CategoryMap
 				 	continue;
 				}
 				String category = split[0];
-				String key = split[1];
+				String key;
+				if (category.equals("blockcreate") || category.equals("blockdestroy"))
+					key = split[1];
+				else
+					key = split[1];
 				int val = Integer.parseInt(split[2]);
 				this.put(category, key, val);
 			}
