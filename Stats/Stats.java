@@ -70,6 +70,8 @@ public class Stats extends Plugin
 	public void disable()
 	{
 		stopTimer();
+		save();
+		playerStats = new PlayerMap();
 	}
 
 	public void initialize()
