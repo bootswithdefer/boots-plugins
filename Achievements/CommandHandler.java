@@ -91,6 +91,23 @@ public class CommandHandler
 				continue;
 			}
 
+			if (s[0].equalsIgnoreCase("warp"))
+			{
+				if (s.length < 2) {
+					log.log(Level.SEVERE, "Bad command (not enough arguments) correct is: warp warpname");
+					continue;
+				}
+				
+				Warp warp = etc.getDataSource().getWarp(s[1]);
+				if (warp == null) {
+					log.log(Level.SEVERE, "Warp not found: " + s[1]);
+					continue;
+				}
+				
+				player.teleportTo(warp.Location);
+				player.sendMessage(Colors.Rose + "Woosh!");
+			}
+
 			log.log(Level.SEVERE, "Unknown command " + s[0]);
 		}
 	}
