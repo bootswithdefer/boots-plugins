@@ -19,12 +19,13 @@ import net.minecraft.server.MinecraftServer;
 public class Stats extends Plugin
 {
 	private String name = "Stats";
-	private int version = 8;
+	private int version = 9;
 	private PlayerMap playerStats = new PlayerMap();
 	private boolean stopTimer = false;
 	private String directory = "stats";
 	private int savedelay = 30;
 	private String[] ignoredGroups = new String[] {""};
+	private final String defaultCategory = "stats";
 
 	static final Logger log	= Logger.getLogger("Minecraft");
 
@@ -64,6 +65,10 @@ public class Stats extends Plugin
 		} catch (Exception e) {
 			log.log(Level.SEVERE, "Exception while creating directory " + directory, e);
 		}
+		
+      for  (Player p: etc.getServer().getPlayerList())
+			load(p);
+
 		log.info(name + " v" + version + " Mod Enabled.");
 	}
 
@@ -72,6 +77,7 @@ public class Stats extends Plugin
 		stopTimer();
 		save();
 		playerStats = new PlayerMap();
+		log.info(name + " v" + version + " Mod Disabled.");
 	}
 
 	public void initialize()
@@ -79,17 +85,19 @@ public class Stats extends Plugin
 		log.info(name + " initializing.");
 	
 		StatsListener listener = new StatsListener();
-		etc.getLoader().addListener(PluginLoader.Hook.LOGIN, listener, this, PluginListener.Priority.LOW);
-		etc.getLoader().addListener(PluginLoader.Hook.CHAT, listener, this, PluginListener.Priority.LOW);
-		etc.getLoader().addListener(PluginLoader.Hook.COMMAND, listener, this, PluginListener.Priority.LOW);
-		etc.getLoader().addListener(PluginLoader.Hook.BAN, listener, this, PluginListener.Priority.LOW);
-		etc.getLoader().addListener(PluginLoader.Hook.IPBAN, listener, this, PluginListener.Priority.LOW);
-		etc.getLoader().addListener(PluginLoader.Hook.KICK, listener, this, PluginListener.Priority.LOW);
-		etc.getLoader().addListener(PluginLoader.Hook.BLOCK_DESTROYED, listener, this, PluginListener.Priority.LOW);
-		etc.getLoader().addListener(PluginLoader.Hook.BLOCK_CREATED, listener, this, PluginListener.Priority.LOW);
-		etc.getLoader().addListener(PluginLoader.Hook.DISCONNECT, listener, this, PluginListener.Priority.LOW);
-		etc.getLoader().addListener(PluginLoader.Hook.PLAYER_MOVE, listener, this, PluginListener.Priority.LOW);
-		etc.getLoader().addListener(PluginLoader.Hook.ARM_SWING, listener, this, PluginListener.Priority.LOW);
+		etc.getLoader().addListener(PluginLoader.Hook.LOGIN, listener, this, PluginListener.Priority.MEDIUM);
+		etc.getLoader().addListener(PluginLoader.Hook.CHAT, listener, this, PluginListener.Priority.MEDIUM);
+		etc.getLoader().addListener(PluginLoader.Hook.COMMAND, listener, this, PluginListener.Priority.MEDIUM);
+		etc.getLoader().addListener(PluginLoader.Hook.BAN, listener, this, PluginListener.Priority.MEDIUM);
+		etc.getLoader().addListener(PluginLoader.Hook.IPBAN, listener, this, PluginListener.Priority.MEDIUM);
+		etc.getLoader().addListener(PluginLoader.Hook.KICK, listener, this, PluginListener.Priority.MEDIUM);
+		etc.getLoader().addListener(PluginLoader.Hook.BLOCK_CREATED, listener, this, PluginListener.Priority.MEDIUM);
+		etc.getLoader().addListener(PluginLoader.Hook.BLOCK_DESTROYED, listener, this, PluginListener.Priority.MEDIUM);
+		etc.getLoader().addListener(PluginLoader.Hook.DISCONNECT, listener, this, PluginListener.Priority.MEDIUM);
+		etc.getLoader().addListener(PluginLoader.Hook.PLAYER_MOVE, listener, this, PluginListener.Priority.MEDIUM);
+		etc.getLoader().addListener(PluginLoader.Hook.ARM_SWING, listener, this, PluginListener.Priority.MEDIUM);
+		etc.getLoader().addListener(PluginLoader.Hook.ITEM_DROP, listener, this, PluginListener.Priority.MEDIUM);
+		etc.getLoader().addListener(PluginLoader.Hook.TELEPORT, listener, this, PluginListener.Priority.MEDIUM);
 		
 		try {
 			etc.getLoader().addCustomListener(new StatsGet());
@@ -106,7 +114,7 @@ public class Stats extends Plugin
 
 	private void updateStat(Player player, String statType, int num)
 	{
-		updateStat(player.getName(), "stats", statType, num);
+		updateStat(player.getName(), defaultCategory, statType, num);
 	}
 	
 	private void updateStat(Player player, String statType, Block block)
@@ -119,13 +127,25 @@ public class Stats extends Plugin
 		String blockName = etc.getDataSource().getItem(block.getType());
 		updateStat(player.getName(), statType, blockName, num);
 	}
-	
+
+	private void updateStat(Player player, String statType, Item item)
+	{
+		String itemName = etc.getDataSource().getItem(item.getItemId());
+		updateStat(player.getName(), statType, itemName, item.getAmount());
+	}
+
+	// primary updateStat
 	private void updateStat(String player, String category, String key, int val)
 	{
 		int oldval = playerStats.get(player, category, key);
 		if (oldval == -1)
 			oldval = 0;
 		playerStats.put(player, category, key, oldval + val);
+	}
+
+	private void setStat(String player, String category, String key, int val)
+	{
+		playerStats.put(player, category, key, val);
 	}
 
 	public int get(String player, String category, String key)
@@ -263,10 +283,18 @@ public class Stats extends Plugin
 			load(player);
 			// TODO: rate limit to prevent abuse
 			updateStat(player, "login");
+			setStat(player.getName(), defaultCategory, "lastlogin", (int)(System.currentTimeMillis()/1000));
 		}
 	
 		public void onDisconnect(Player player)
 		{
+			int now = (int)(System.currentTimeMillis()/1000L);
+			setStat(player.getName(), defaultCategory, "lastlogout", now);
+
+			int loginTime = get(player.getName(), defaultCategory, "lastlogin");
+			if (loginTime > 0 && now > loginTime)
+				updateStat(player, "playedfor", now - loginTime);
+
 			unload(player);
 		}
 	
@@ -326,6 +354,18 @@ public class Stats extends Plugin
 		{
 			updateStat(player, "armswing");
 		}
+
+		public boolean onTeleport(Player player, Location from, Location to)
+		{
+			updateStat(player, "teleport");
+			return false;
+		}
+		
+		public boolean onItemDrop(Player player, Item item)
+		{
+			updateStat(player, "itemdrop", item);
+			return false;
+		}		
 	}
 	// End Listener Class
 	
