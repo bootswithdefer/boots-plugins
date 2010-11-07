@@ -18,6 +18,7 @@ import net.minecraft.server.MinecraftServer;
 
 public class Stats extends Plugin
 {
+	private boolean versionCheck = true;
 	private String name = "Stats";
 	private int version = 9;
 	private PlayerMap playerStats = new PlayerMap();
@@ -56,6 +57,7 @@ public class Stats extends Plugin
 			String s = properties.getString("stats-ignored-groups", "default");
 			ignoredGroups = s.split(",");
 			savedelay = properties.getInt("stats-save-delay", 30);
+			versionCheck = properties.getBoolean("boots-version-check", true);
 		} catch (Exception e) {
 			log.log(Level.SEVERE, "Exception	while	reading from server.properties",	e);
 		}
@@ -69,7 +71,7 @@ public class Stats extends Plugin
       for  (Player p: etc.getServer().getPlayerList())
 			load(p);
 
-		log.info(name + " v" + version + " Mod Enabled.");
+		log.info(name + " v" + version + " Plugin Enabled.");
 	}
 
 	public void disable()
@@ -77,12 +79,14 @@ public class Stats extends Plugin
 		stopTimer();
 		save();
 		playerStats = new PlayerMap();
-		log.info(name + " v" + version + " Mod Disabled.");
+		log.info(name + " v" + version + " Plugin Disabled.");
 	}
 
 	public void initialize()
 	{
 		log.info(name + " initializing.");
+		
+		new VersionCheck(name, version, versionCheck);
 	
 		StatsListener listener = new StatsListener();
 		etc.getLoader().addListener(PluginLoader.Hook.LOGIN, listener, this, PluginListener.Priority.MEDIUM);

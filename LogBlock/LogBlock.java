@@ -11,6 +11,7 @@ import net.minecraft.server.MinecraftServer;
 
 public class LogBlock extends Plugin
 {
+	private boolean versionCheck = true;
 	private String name = "LogBlock";
 	private int version = 6;
 	private String dbDriver = "com.mysql.jdbc.Driver";
@@ -37,10 +38,10 @@ public class LogBlock extends Plugin
 			delay = properties.getInt("delay", 10);
 			toolID = properties.getInt("tool-id", 270);
 			defaultDist = properties.getInt("default-distance", 20);
+			versionCheck = properties.getBoolean("boots-version-check", true);
 		} catch (Exception ex) {
 			log.log(Level.SEVERE, "Exception	while	reading from logblock.properties",	ex);
-		}
-		
+		}		
 		try {
 			new JDCConnectionDriver(dbDriver, dbUrl, dbUsername, dbPassword);
 		} catch (Exception ex) {
@@ -62,6 +63,8 @@ public class LogBlock extends Plugin
 
 	public void initialize()
 	{
+		new VersionCheck(name, version, versionCheck);
+		
 		LBListener listener = new LBListener();
 		etc.getLoader().addListener(PluginLoader.Hook.COMMAND, listener, this, PluginListener.Priority.LOW);
 		etc.getLoader().addListener(PluginLoader.Hook.BLOCK_CREATED, listener, this, PluginListener.Priority.LOW);

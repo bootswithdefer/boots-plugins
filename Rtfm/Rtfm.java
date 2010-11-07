@@ -4,6 +4,7 @@ import net.minecraft.server.MinecraftServer;
 
 public class Rtfm extends Plugin
 {
+	private boolean versionCheck = true;
 	private String name = "Rtfm";
 	private int version = 3;
 	
@@ -11,16 +12,19 @@ public class Rtfm extends Plugin
 	
 	public void enable()
 	{
-	        log.info("RTFM Mod Enabled.");
-	        etc.getInstance().addCommand("/rtfm", " - Read the F***ing Manual.");
+		log.info(name + " v" + version + " Plugin Enabled.");
+		etc.getInstance().addCommand("/rtfm", " - Read the F***ing Manual.");
 	}
 
 	public void disable()
 	{
+		log.info(name + " v" + version + " Plugin Disabled.");
 	}
 
 	public void initialize()
 	{
+		new VersionCheck(name, version, versionCheck);
+
 		RtfmListener listener = new RtfmListener();
 		etc.getLoader().addListener(PluginLoader.Hook.COMMAND, listener, this, PluginListener.Priority.MEDIUM);
 	}
@@ -67,5 +71,4 @@ public class Rtfm extends Plugin
 			return false;
 		}
 	}
-
 }

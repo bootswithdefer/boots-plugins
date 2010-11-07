@@ -9,6 +9,7 @@ import net.minecraft.server.MinecraftServer;
 
 public class Warn extends Plugin
 {
+	private boolean versionCheck = true;
 	private String name = "Warn";
 	private int version = 4;
 	private int delay = 10;
@@ -53,7 +54,7 @@ public class Warn extends Plugin
 
 	public void enable()
 	{
-		log.info(name + " Mod v" + version + " Enabled.");
+		log.info(name + " v" + version + " Plugin Enabled.");
 		etc.getInstance().addCommand("/warn", " [player] [message] - warn a player about violating a rule.");
 		etc.getInstance().addCommand("/unwarn", " [player] - removes a warning.");
 		etc.getInstance().addCommand("/acknowledge", " - acknoledge a warning.");
@@ -64,17 +65,20 @@ public class Warn extends Plugin
 	public void disable()
 	{
 		warnings.clear();
-		log.info(name + " Mod v" + version + " Disabled.");
+		log.info(name + " v" + version + " Plugin Disabled.");
 		stopTimer();
 	}
 
 	public void initialize()
 	{
+		new VersionCheck(name, version, versionCheck);
+		
 		PropertiesFile properties = new PropertiesFile("server.properties");
 		try {
 			blockCommands = properties.getBoolean("warn-block-commands", false);
 			blockChat = properties.getBoolean("warn-block-chat", false);
 			blockMove = properties.getBoolean("warn-block-move", true);
+			versionCheck = properties.getBoolean("boots-version-check", true);
 		} catch (Exception ex) {
 			log.log(Level.SEVERE, "Exception while reading from server.properties", ex);
 		}
