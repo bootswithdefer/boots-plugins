@@ -1,9 +1,11 @@
 import java.util.HashMap;
+import java.util.logging.Logger;
 
 public class PlayerMap
 {
 	private HashMap<String, CategoryMap> stats = new HashMap<String, CategoryMap>();
-	
+	static final Logger log	= Logger.getLogger("Minecraft");
+
 	public void put(String player, String category, String key, Integer val)
 	{
 		if (!this.stats.containsKey(player))
@@ -25,9 +27,11 @@ public class PlayerMap
 	{
 		if (directory.isEmpty() || player.isEmpty())
 			return;
+		if (!this.stats.containsKey(player))
+			return;
+
 		String location = directory + "/" + player + ".txt";
-		if (stats.containsKey(player))
-			stats.get(player).save(location);
+		this.stats.get(player).save(location);
 	}
 	
 	public void saveAll(String directory)
@@ -35,12 +39,11 @@ public class PlayerMap
 		String location;
 		if (directory.isEmpty())
 			return;
-		
-		for (String player: stats.keySet())
-		{
-			location = directory + "/" + player + ".txt";
-			stats.get(player).save(location);
-		}
+		if (this.stats.size() == 0)
+			return;
+		log.info("Saving " + this.stats.size() + " stat files...");
+		for (String player: this.stats.keySet())
+			save(directory, player);
 	}
 	
 	public void load(String directory, String player)
@@ -48,20 +51,22 @@ public class PlayerMap
 		if (directory.isEmpty() || player.isEmpty())
 			return;
 			
-		if (stats.containsKey(player))
+		if (this.stats.containsKey(player))
 			return;
-			
+		
 		String location = directory + "/" + player + ".txt";
+		log.info("Loading " + location);
 		
 		CategoryMap cstats = new CategoryMap();
-		this.stats.put(player, cstats);
+		cstats.load(location);
 		
-		stats.get(player).load(location);
+		this.stats.put(player, cstats);
 	}
 	
 	public void unload(String directory, String player)
 	{
+		log.info("Unloading " + player);
 		save(directory, player);
-		stats.remove(player);
+		this.stats.remove(player);
 	}
 }

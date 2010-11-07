@@ -6,8 +6,6 @@ import java.io.BufferedWriter;
 import java.io.IOException;
 import java.util.Scanner;
 import java.util.logging.Logger;
-import java.util.Timer;
-import java.util.TimerTask;
 import java.util.logging.Level;
 
 public class CategoryMap
@@ -63,6 +61,7 @@ public class CategoryMap
 						writer.close();
 				  }
 			 }	catch	(IOException e) {
+				 log.log(Level.SEVERE, "Exception while closing " + location, e);
 			 }
 		}
 	}
@@ -70,7 +69,10 @@ public class CategoryMap
 	public void load(String location)
 	{
 		if (!new File(location).exists())
+		{
+			log.info("File does not exist " + location);
 			return;
+		}
 		try {
 			Scanner scanner =	new Scanner(new File(location));
 			while	(scanner.hasNextLine())
