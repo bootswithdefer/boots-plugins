@@ -21,7 +21,7 @@ import net.minecraft.server.MinecraftServer;
 public class Achievements extends Plugin
 {
    private String name = "Achievements";
-   private int version = 10;
+   private int version = 11;
    private boolean stopTimer = false;
    private String directory = "achievements";
    private String listLocation = "achievements.txt";
@@ -177,7 +177,7 @@ public class Achievements extends Plugin
          writer = new BufferedWriter(new	FileWriter(listLocation));
          writer.write("# Achievements");
          writer.newLine();
-         writer.write("# Format is: enabled:name:maxawards:category:key:value:description[:commands]");
+         writer.write("# Format is: enabled:name:maxawards:category:key:value:description[:commands[:conditions]]");
          writer.newLine();
          writer.write("# commands are optional, separated by semicolons (;), available commands: item group");
          writer.newLine();
@@ -221,17 +221,17 @@ public class Achievements extends Plugin
                continue;
             String[] split = line.split(":");
             if (split.length < 7) {
-               log.log(Level.SEVERE, "Malformed line (" + line + ") in " + listLocation);
+               log.log(Level.SEVERE, "Malformed line, not enough fields (" + line + ") in " + listLocation);
                continue;
             }
 				int enabled = Integer.parseInt(split[0]);
             int maxawards = Integer.parseInt(split[2]);
             int value = Integer.parseInt(split[5]);
 				String commands = null;
-				if (split.length == 8)
+				if (split.length > 7)
 					commands = split[7];
 				String conditions = null;
-				if (split.length == 9)
+				if (split.length > 8)
 					conditions = split[8];
             achievementList.put(split[1], new AchievementListData(enabled, split[1], maxawards, split[3], split[4], value, split[6], commands, conditions));
          }
@@ -452,7 +452,7 @@ public class Achievements extends Plugin
 				player.sendMessage(Colors.Rose + "Enabled Name Maxawards Category Key Value");
 				for (String name: achievementList.keySet()) {
 					AchievementListData ach = achievementList.get(name);
-					player.sendMessage(MyColors.codeToColor(color) + ach.isEnabled() + " " + ach.getName() + " " + ach.getMaxawards() + " " + ach.getCategory() + " " + ach.getKey() + " " + ach.getValue());
+					player.sendMessage(MyColors.codeToColor(color) + ach.toString());
 				}
 	         return true;
 	      }

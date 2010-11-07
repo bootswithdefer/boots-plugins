@@ -21,7 +21,7 @@ public class Conditionals
 		{
 			if (c.length() <= 1)
 				continue;
-				log.info(c);
+//			log.info(c);
 			this.condList.add(c);
 			this.empty = false;
 		}
@@ -76,13 +76,18 @@ public class Conditionals
 
 	public String toString()
 	{
+		boolean second = false;
+		
 		if (isEmpty())
 			return "";
 	
 		String ret = "";
 		for (String s: condList)
 		{
-			ret = ret + ";";
+			if (second)
+				ret = ret + ";";
+			ret = ret + s;
+			second = true;
 		}
 		return ret;
 	}

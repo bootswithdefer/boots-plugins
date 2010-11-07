@@ -25,7 +25,7 @@ public class CommandHandler
 				log.log(Level.SEVERE, "Invalid command " + c);
 				continue;
 			}
-
+//			log.info(c);
 			this.commandList.add(s);
 			this.empty = false;
 		}
@@ -107,7 +107,6 @@ public class CommandHandler
 				player.teleportTo(warp.Location);
 				player.sendMessage(Colors.Rose + "Woosh!");
 			}
-
 			log.log(Level.SEVERE, "Unknown command " + s[0]);
 		}
 	}
@@ -119,17 +118,21 @@ public class CommandHandler
 
 	public String toString()
 	{
+		boolean second = false;
+		
 		if (isEmpty())
 			return "";
 	
 		String ret = "";
 		for (String[] s: commandList)
 		{
+			if (second)
+				ret = ret + ";";
 			for (String c: s)
 			{
 				ret = ret + c + " ";
 			}
-			ret = ret + ";";
+			second = true;
 		}
 		return ret;
 	}
