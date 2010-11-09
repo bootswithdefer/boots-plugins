@@ -18,9 +18,8 @@ import net.minecraft.server.MinecraftServer;
 
 public class Stats extends Plugin
 {
-	private boolean versionCheck = true;
 	private String name = "Stats";
-	private int version = 9;
+	private int version = 11;
 	private PlayerMap playerStats = new PlayerMap();
 	private boolean stopTimer = false;
 	private String directory = "stats";
@@ -40,7 +39,7 @@ public class Stats extends Plugin
 						timer.cancel();
 						return;
 					}
-					save();
+					saveAll();
 				}
 			},	3000,	savedelay*1000);
 	}
@@ -57,7 +56,6 @@ public class Stats extends Plugin
 			String s = properties.getString("stats-ignored-groups", "default");
 			ignoredGroups = s.split(",");
 			savedelay = properties.getInt("stats-save-delay", 30);
-			versionCheck = properties.getBoolean("boots-version-check", true);
 		} catch (Exception e) {
 			log.log(Level.SEVERE, "Exception	while	reading from server.properties",	e);
 		}
@@ -77,7 +75,7 @@ public class Stats extends Plugin
 	public void disable()
 	{
 		stopTimer();
-		save();
+		saveAll();
 		playerStats = new PlayerMap();
 		log.info(name + " v" + version + " Plugin Disabled.");
 	}
@@ -86,7 +84,7 @@ public class Stats extends Plugin
 	{
 		log.info(name + " initializing.");
 		
-		new VersionCheck(name, version, versionCheck);
+		new VersionCheck(name, version);
 	
 		StatsListener listener = new StatsListener();
 		etc.getLoader().addListener(PluginLoader.Hook.LOGIN, listener, this, PluginListener.Priority.MEDIUM);
@@ -170,17 +168,26 @@ public class Stats extends Plugin
 			return;
 		playerStats.unload(directory, player.getName());
 	}
-	
-	private void save()
+
+	private void saveAll()
 	{
-		playerStats.saveAll(directory);
+		int count = 0;
+		for (Player p: etc.getServer().getPlayerList())
+			if (!inIgnoredGroup(p))
+			{
+				playerStats.save(directory, p.getName());
+				count++;
+			}
+		log.info("Saved " + count + "/" + playerStats.size() + " stat files...");
 	}
 	
 	private boolean inIgnoredGroup(Player player)
 	{
-		for (String g: ignoredGroups) {
-			if (player.isInGroup(g))
-				return true;
+		for (String ignored: ignoredGroups) {
+			for (String group: player.getGroups()) {
+				if (ignored.equalsIgnoreCase(group))
+					return true;
+			}
 		}
 		return false;
 	}

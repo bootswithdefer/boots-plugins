@@ -6,6 +6,11 @@ public class PlayerMap
 	private HashMap<String, CategoryMap> stats = new HashMap<String, CategoryMap>();
 	static final Logger log	= Logger.getLogger("Minecraft");
 
+	public int size()
+	{
+		return this.stats.size();
+	}
+
 	public void put(String player, String category, String key, Integer val)
 	{
 		if (!this.stats.containsKey(player))
@@ -34,7 +39,7 @@ public class PlayerMap
 		this.stats.get(player).save(location);
 	}
 	
-	public void saveAll(String directory)
+	private void XsaveAll(String directory)
 	{
 		String location;
 		if (directory.isEmpty())
