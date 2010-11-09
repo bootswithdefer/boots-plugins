@@ -4,7 +4,6 @@ import net.minecraft.server.MinecraftServer;
 
 public class Rtfm extends Plugin
 {
-	private boolean versionCheck = true;
 	private String name = "Rtfm";
 	private int version = 3;
 	
@@ -23,7 +22,7 @@ public class Rtfm extends Plugin
 
 	public void initialize()
 	{
-		new VersionCheck(name, version, versionCheck);
+		new VersionCheck(name, version);
 
 		RtfmListener listener = new RtfmListener();
 		etc.getLoader().addListener(PluginLoader.Hook.COMMAND, listener, this, PluginListener.Priority.MEDIUM);

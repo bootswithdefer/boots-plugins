@@ -1,4 +1,5 @@
 import java.util.logging.Logger;
+import java.util.logging.Level;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.URL;
@@ -8,14 +9,24 @@ public class VersionCheck
 {
 	private String name = "none";
 	private int version = 0;
-	private boolean versionCheck = true;
 	static final Logger log	= Logger.getLogger("Minecraft");
 
-	VersionCheck(String name, int version, boolean check)
+	VersionCheck(String name, int version)
 	{
+		boolean check = true;
+		
+		PropertiesFile properties = new PropertiesFile("server.properties");
+		try {
+			check = properties.getBoolean("boots-version-check", true);
+		} catch (Exception ex) {
+			log.log(Level.SEVERE, "Exception while reading from server.properties", ex);
+		}
+
+		if (!check)
+			return;
+
 		this.name = name;
 		this.version = version;
-		versionCheck = check;
 		new Thread(new Runner()).start();
 	}
 	
@@ -23,9 +34,6 @@ public class VersionCheck
 	{
 		public void run()
 		{
-			if (!versionCheck)
-				return;
-	
 			try {
 				URL url = new URL("http://www.bootswithdefer.com/minecraft/version.php?plugin=" + name + "&version=" + version + "&hmod=" + etc.getInstance().getVersion());
 				URLConnection urlc = url.openConnection();

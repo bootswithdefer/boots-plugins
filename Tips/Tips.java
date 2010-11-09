@@ -14,7 +14,6 @@ import java.util.Random;
 import net.minecraft.server.MinecraftServer;
 
 public class Tips extends Plugin {
-	private boolean versionCheck = true;
    private String name = "Tips";
 	private int version = 7;
    private String location = "tips.txt";
@@ -141,7 +140,6 @@ public class Tips extends Plugin {
          delay = properties.getInt("tip-delay", 120);
          prefix = properties.getString("tip-prefix",   "TIP: ");
          color = properties.getString("tip-color", MyColors.LightBlue);
-			versionCheck = properties.getBoolean("boots-version-check", true);
       } catch (Exception e) {
          log.log(Level.SEVERE, "Exception while reading from server.properties", e);
       }
@@ -163,7 +161,7 @@ public class Tips extends Plugin {
 	
 	public void initialize()
 	{
-		new VersionCheck(name, version, versionCheck);
+		new VersionCheck(name, version);
 
 		TipsListener listener = new TipsListener();
 		etc.getLoader().addListener(PluginLoader.Hook.COMMAND, listener, this, PluginListener.Priority.LOW);

@@ -6,7 +6,6 @@ import net.minecraft.server.MinecraftServer;
 
 public class ColumnKiller extends Plugin
 {
-	private boolean versionCheck = true;
 	private String name = "ColumnKiller";
 	private int version = 1;
 	private int history = 6;
@@ -27,7 +26,7 @@ public class ColumnKiller extends Plugin
 
 	public void initialize()
 	{
-		new VersionCheck(name, version, versionCheck);
+		new VersionCheck(name, version);
 
 		CKListener listener = new CKListener();
 		etc.getLoader().addListener(PluginLoader.Hook.BLOCK_CREATED, listener, this, PluginListener.Priority.MEDIUM);

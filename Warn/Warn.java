@@ -71,14 +71,13 @@ public class Warn extends Plugin
 
 	public void initialize()
 	{
-		new VersionCheck(name, version, versionCheck);
+		new VersionCheck(name, version);
 		
 		PropertiesFile properties = new PropertiesFile("server.properties");
 		try {
 			blockCommands = properties.getBoolean("warn-block-commands", false);
 			blockChat = properties.getBoolean("warn-block-chat", false);
 			blockMove = properties.getBoolean("warn-block-move", true);
-			versionCheck = properties.getBoolean("boots-version-check", true);
 		} catch (Exception ex) {
 			log.log(Level.SEVERE, "Exception while reading from server.properties", ex);
 		}
