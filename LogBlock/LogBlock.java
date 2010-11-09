@@ -1,3 +1,6 @@
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.HashMap;
 import java.util.logging.Logger;
 import java.util.logging.Level;
 import java.util.Timer;
@@ -11,9 +14,8 @@ import net.minecraft.server.MinecraftServer;
 
 public class LogBlock extends Plugin
 {
-	private boolean versionCheck = true;
 	private String name = "LogBlock";
-	private int version = 6;
+	private int version = 7;
 	private String dbDriver = "com.mysql.jdbc.Driver";
 	private String dbUrl = "";
 	private String dbUsername = "";
@@ -38,7 +40,6 @@ public class LogBlock extends Plugin
 			delay = properties.getInt("delay", 10);
 			toolID = properties.getInt("tool-id", 270);
 			defaultDist = properties.getInt("default-distance", 20);
-			versionCheck = properties.getBoolean("boots-version-check", true);
 		} catch (Exception ex) {
 			log.log(Level.SEVERE, "Exception	while	reading from logblock.properties",	ex);
 		}		
@@ -63,7 +64,7 @@ public class LogBlock extends Plugin
 
 	public void initialize()
 	{
-		new VersionCheck(name, version, versionCheck);
+		new VersionCheck(name, version);
 		
 		LBListener listener = new LBListener();
 		etc.getLoader().addListener(PluginLoader.Hook.COMMAND, listener, this, PluginListener.Priority.LOW);
@@ -76,11 +77,9 @@ public class LogBlock extends Plugin
 		return DriverManager.getConnection("jdbc:jdc:jdcpool");
 	}
 	
-	private void queueBlock(Player player, String type, Block b)
+	private void queueBlock(Player player, Block before, Block after)
 	{
-		if (b.getType() == 0)
-			return;
-		BlockRow row = new BlockRow(player.getName(), type, b.getType(), b.getX(), b.getY(), b.getZ());
+		BlockRow row = new BlockRow(player.getName(), before.getType(), after.getType(), after.getX(), after.getY(), after.getZ());
 		boolean result = bqueue.offer(row);
 		if (!result)
 			log.info(name + " failed to queue block for " + player.getName());
@@ -103,7 +102,7 @@ public class LogBlock extends Plugin
 			rs = ps.executeQuery();
 			while (rs.next())
 			{
-				String msg = rs.getString("date") + " " + rs.getString("player") + " " + rs.getString("action") + " " + etc.getDataSource().getItem(rs.getInt("type"));
+				String msg = rs.getString("date") + " " + rs.getString("player") + " " + etc.getDataSource().getItem(rs.getInt("replaced")) + "-" + etc.getDataSource().getItem(rs.getInt("type"));
 				player.sendMessage(Colors.Gold + msg);
 				hist = true;
 			}
@@ -122,115 +121,241 @@ public class LogBlock extends Plugin
 			player.sendMessage(Colors.Blue + "None.");
 	}
 
-	private void showAreaStats(Player player, int size)
+	private class AreaStats implements Runnable
 	{
-		player.sendMessage(Colors.Blue + "Within " + size + " blocks of you: ");
-		player.sendMessage(Colors.Gold + String.format("%-6s %s", "#", "Player"));
-		boolean hist = false;
-		Connection conn = null;
-		PreparedStatement ps = null;
-		ResultSet rs = null;
-		try {
-			conn = getConnection();
-			conn.setAutoCommit(false);
-			ps = conn.prepareStatement("SELECT player, count(player) as num from blocks where x > ? and x < ? and z > ? and z < ? group by player order by count(player) desc limit 10", Statement.RETURN_GENERATED_KEYS);
-			ps.setInt(1, (int)player.getX()-size);
-			ps.setInt(2, (int)player.getX()+size);
-			ps.setInt(3, (int)player.getZ()-size);
-			ps.setInt(4, (int)player.getZ()+size);
-			rs = ps.executeQuery();
-			while (rs.next())
-			{
-				String msg = String.format("%-6d %s", rs.getInt("num"), rs.getString("player"));
-				player.sendMessage(Colors.Gold + msg);
-				hist = true;
-			}
-		} catch (SQLException ex) {
-			log.log(Level.SEVERE, name + " SQL exception", ex);
-		} finally {
+		private Player player;
+		private int size;
+		AreaStats(Player player, int size)
+		{
+			this.player = player;
+			this.size = size;
+		}
+		public void run()
+		{
+			HashSet<String> players = new HashSet<String>();
+			HashMap<String, Integer> created = new HashMap<String, Integer>();
+			HashMap<String, Integer> destroyed = new HashMap<String, Integer>();
+			
+			Connection conn = null;
+			PreparedStatement ps = null;
+			ResultSet rs = null;
+	
 			try {
+				conn = getConnection();
+				conn.setAutoCommit(false);
+				ps = conn.prepareStatement("SELECT player, count(player) as num from blocks where type > 0 and x > ? and x < ? and z > ? and z < ? group by player order by count(player) desc limit 10", Statement.RETURN_GENERATED_KEYS);
+				ps.setInt(1, (int)player.getX()-size);
+				ps.setInt(2, (int)player.getX()+size);
+				ps.setInt(3, (int)player.getZ()-size);
+				ps.setInt(4, (int)player.getZ()+size);
+				rs = ps.executeQuery();
+				while (rs.next())
+				{
+					players.add(rs.getString("player"));
+					created.put(rs.getString("player"), rs.getInt("num"));
+				}
 				rs.close();
 				ps.close();
-				conn.close();
+				
+				ps = conn.prepareStatement("SELECT player, count(player) as num from blocks where replaced > 0 and x > ? and x < ? and z > ? and z < ? group by player order by count(player) desc limit 10", Statement.RETURN_GENERATED_KEYS);
+				ps.setInt(1, (int)player.getX()-size);
+				ps.setInt(2, (int)player.getX()+size);
+				ps.setInt(3, (int)player.getZ()-size);
+				ps.setInt(4, (int)player.getZ()+size);
+				rs = ps.executeQuery();
+				while (rs.next())
+				{
+					players.add(rs.getString("player"));
+					destroyed.put(rs.getString("player"), rs.getInt("num"));
+				}
+				
 			} catch (SQLException ex) {
-				log.log(Level.SEVERE, name + " SQL exception on close", ex);
+				log.log(Level.SEVERE, name + " SQL exception", ex);
+			} finally {
+				try {
+					rs.close();
+					ps.close();
+					conn.close();
+				} catch (SQLException ex) {
+					log.log(Level.SEVERE, name + " SQL exception on close", ex);
+				}
+			}
+	
+			player.sendMessage(Colors.Blue + "Within " + size + " blocks of you: ");
+			if (players.size() == 0)
+			{
+				player.sendMessage(Colors.Blue + "No results found.");
+				return;
+			}
+			
+			player.sendMessage(Colors.Gold + String.format("%-6s %-6s %s", "Creat", "Destr", "Player"));
+			for (String p: players)
+			{
+				Integer c = created.get(p);
+				Integer d = destroyed.get(p);
+				if (c == null)
+					c = 0;
+				if (d == null)
+					d = 0;
+				player.sendMessage(Colors.Gold + String.format("%-6d %-6d %s", c, d, p));
 			}
 		}
-		if (!hist)
-			player.sendMessage(Colors.Blue + "Nothing.");
 	}
 
-	private void showPlayerAreaStats(Player player, String name, int size)
+	private class PlayerAreaStats implements Runnable
 	{
-		player.sendMessage(Colors.Blue + "Stats for " + name + ", within " + size + " blocks of you: ");
-		player.sendMessage(Colors.Gold + String.format("%-6s %s", "#", "Block"));
-		boolean hist = false;
-		Connection conn = null;
-		PreparedStatement ps = null;
-		ResultSet rs = null;
-		try {
-			conn = getConnection();
-			conn.setAutoCommit(false);
-			ps = conn.prepareStatement("SELECT type, count(type) as num from blocks where x > ? and x < ? and z > ? and z < ? and player = ? group by type order by count(type) desc limit 10", Statement.RETURN_GENERATED_KEYS);
-			ps.setInt(1, (int)player.getX()-size);
-			ps.setInt(2, (int)player.getX()+size);
-			ps.setInt(3, (int)player.getZ()-size);
-			ps.setInt(4, (int)player.getZ()+size);
-			ps.setString(5, name);
-			rs = ps.executeQuery();
-			while (rs.next())
-			{
-				String msg = String.format("%-6d %s", rs.getInt("num"), etc.getDataSource().getItem(rs.getInt("type")));
-				player.sendMessage(Colors.Gold + msg);
-				hist = true;
-			}
-		} catch (SQLException ex) {
-			log.log(Level.SEVERE, name + " SQL exception", ex);
-		} finally {
+		private Player player;
+		private String name;
+		private int size;
+		PlayerAreaStats(Player player, String name, int size)
+		{
+			this.player = player;
+			this.name = name;
+			this.size = size;
+		}
+		public void run()
+		{
+			HashSet<String> types = new HashSet<String>();
+			HashMap<String, Integer> created = new HashMap<String, Integer>();
+			HashMap<String, Integer> destroyed = new HashMap<String, Integer>();
+			
+			Connection conn = null;
+			PreparedStatement ps = null;
+			ResultSet rs = null;
+	
 			try {
+				conn = getConnection();
+				conn.setAutoCommit(false);
+				ps = conn.prepareStatement("SELECT type, count(type) as num from blocks where type > 0 and player = ? and x > ? and x < ? and z > ? and z < ? group by type order by count(replaced) desc limit 10", Statement.RETURN_GENERATED_KEYS);
+				ps.setString(1, name);
+				ps.setInt(2, (int)player.getX()-size);
+				ps.setInt(3, (int)player.getX()+size);
+				ps.setInt(4, (int)player.getZ()-size);
+				ps.setInt(5, (int)player.getZ()+size);
+				rs = ps.executeQuery();
+				while (rs.next())
+				{
+					types.add(etc.getDataSource().getItem(rs.getInt("type")));
+					created.put(etc.getDataSource().getItem(rs.getInt("type")), rs.getInt("num"));
+				}
 				rs.close();
 				ps.close();
-				conn.close();
+				
+				ps = conn.prepareStatement("SELECT replaced, count(replaced) as num from blocks where replaced > 0 and player = ? and x > ? and x < ? and z > ? and z < ? group by replaced order by count(replaced) desc limit 10", Statement.RETURN_GENERATED_KEYS);
+				ps.setString(1, name);
+				ps.setInt(2, (int)player.getX()-size);
+				ps.setInt(3, (int)player.getX()+size);
+				ps.setInt(4, (int)player.getZ()-size);
+				ps.setInt(5, (int)player.getZ()+size);
+				rs = ps.executeQuery();
+				while (rs.next())
+				{
+					types.add(etc.getDataSource().getItem(rs.getInt("replaced")));
+					destroyed.put(etc.getDataSource().getItem(rs.getInt("replaced")), rs.getInt("num"));
+				}
+				
 			} catch (SQLException ex) {
-				log.log(Level.SEVERE, name + " SQL exception on close", ex);
+				log.log(Level.SEVERE, name + " SQL exception", ex);
+			} finally {
+				try {
+					rs.close();
+					ps.close();
+					conn.close();
+				} catch (SQLException ex) {
+					log.log(Level.SEVERE, name + " SQL exception on close", ex);
+				}
+			}
+	
+			player.sendMessage(Colors.Blue + "Player " + name + " within " + size + " blocks of you: ");
+			if (types.size() == 0)
+			{
+				player.sendMessage(Colors.Blue + "No results found.");
+				return;
+			}
+			
+			player.sendMessage(Colors.Gold + String.format("%-6s %-6s %s", "Creat", "Destr", "Block"));
+			for (String t: types)
+			{
+				Integer c = created.get(t);
+				Integer d = destroyed.get(t);
+				if (c == null)
+					c = 0;
+				if (d == null)
+					d = 0;
+				player.sendMessage(Colors.Gold + String.format("%-6d %-6d %s", c, d, t));
 			}
 		}
-		if (!hist)
-			player.sendMessage(Colors.Blue + "Nothing.");
 	}
 
-	private void showPlayerWorldStats(Player player)
+	private class PlayerWorldStats implements Runnable
 	{
-		player.sendMessage(Colors.Blue + "Player stats, entire map: ");
-		player.sendMessage(Colors.Gold + String.format("%-6s %s", "#", "Player"));
-		boolean hist = false;
-		Connection conn = null;
-		PreparedStatement ps = null;
-		ResultSet rs = null;
-		try {
-			conn = getConnection();
-			conn.setAutoCommit(false);
-			ps = conn.prepareStatement("SELECT player, count(player) as num from blocks group by player order by count(player) desc limit 10", Statement.RETURN_GENERATED_KEYS);
-			rs = ps.executeQuery();
-			while (rs.next())
-			{
-				String msg = String.format("%-6d %s", rs.getInt("num"), rs.getString("player"));
-				player.sendMessage(Colors.Gold + msg);
-				hist = true;
-			}
-		} catch (SQLException ex) {
-			log.log(Level.SEVERE, name + " SQL exception", ex);
-		} finally {
+		private Player player;
+		PlayerWorldStats(Player player)
+		{
+			this.player = player;
+		}
+		public void run()
+		{
+			HashSet<String> players = new HashSet<String>();
+			HashMap<String, Integer> created = new HashMap<String, Integer>();
+			HashMap<String, Integer> destroyed = new HashMap<String, Integer>();
+			
+			Connection conn = null;
+			PreparedStatement ps = null;
+			ResultSet rs = null;
+	
 			try {
+				conn = getConnection();
+				conn.setAutoCommit(false);
+				ps = conn.prepareStatement("SELECT player, count(player) as num from blocks where type > 0 group by player order by count(player) desc limit 5", Statement.RETURN_GENERATED_KEYS);
+				rs = ps.executeQuery();
+				while (rs.next())
+				{
+					players.add(rs.getString("player"));
+					created.put(rs.getString("player"), rs.getInt("num"));
+				}
 				rs.close();
 				ps.close();
-				conn.close();
+				
+				ps = conn.prepareStatement("SELECT player, count(player) as num from blocks where replaced > 0 group by player order by count(player) desc limit 5", Statement.RETURN_GENERATED_KEYS);
+				rs = ps.executeQuery();
+				while (rs.next())
+				{
+					players.add(rs.getString("player"));
+					destroyed.put(rs.getString("player"), rs.getInt("num"));
+				}
+				
 			} catch (SQLException ex) {
-				log.log(Level.SEVERE, name + " SQL exception on close", ex);
+				log.log(Level.SEVERE, name + " SQL exception", ex);
+			} finally {
+				try {
+					rs.close();
+					ps.close();
+					conn.close();
+				} catch (SQLException ex) {
+					log.log(Level.SEVERE, name + " SQL exception on close", ex);
+				}
+			}
+	
+			player.sendMessage(Colors.Blue + "Within entire world:");
+			if (players.size() == 0)
+			{
+				player.sendMessage(Colors.Blue + "No results found.");
+				return;
+			}
+			
+			player.sendMessage(Colors.Gold + String.format("%-6s %-6s %s", "Creat", "Destr", "Player"));
+			for (String p: players)
+			{
+				Integer c = created.get(p);
+				Integer d = destroyed.get(p);
+				if (c == null)
+					c = 0;
+				if (d == null)
+					d = 0;
+				player.sendMessage(Colors.Gold + String.format("%-6d %-6d %s", c, d, p));
 			}
 		}
-		if (!hist)
-			player.sendMessage(Colors.Blue + "Nothing.");
 	}
 	
 	public class LBListener extends PluginListener // start
@@ -242,20 +367,26 @@ public class LogBlock extends Plugin
 				
 	      if (split[0].equalsIgnoreCase("/lb")) {
 				if (split.length == 1) {
-					showAreaStats(player, defaultDist);
+					AreaStats th = new AreaStats(player, defaultDist);
+					new Thread(th).start();
 					return true;
 				}
 				if (split.length == 2) {
-					if (split[1].equalsIgnoreCase("world"))
-						showPlayerWorldStats(player);
-					else
+					if (split[1].equalsIgnoreCase("world")) {
+						PlayerWorldStats th = new PlayerWorldStats(player);
+						new Thread(th).start();
+					} else
 						player.sendMessage(Colors.Rose + "Incorrect usage.");
 					return true;
 				}
-				if (split[1].equalsIgnoreCase("player"))
-					showPlayerAreaStats(player, split[2], defaultDist);
-				else if (split[1].equalsIgnoreCase("area"))
-					showAreaStats(player, Integer.parseInt(split[2]));
+				if (split[1].equalsIgnoreCase("player")) {
+					PlayerAreaStats th = new PlayerAreaStats(player, split[2], defaultDist);
+					new Thread(th).start();
+				}
+				else if (split[1].equalsIgnoreCase("area")) {
+					AreaStats th = new AreaStats(player, Integer.parseInt(split[2]));
+					new Thread(th).start();
+				}
 				else
 					player.sendMessage(Colors.Rose + "Incorrect usage.");
 				return true;
@@ -276,8 +407,7 @@ public class LogBlock extends Plugin
 			if (before.getType() == blockPlaced.getType())
 				return false;
 				
-			queueBlock(player, "create", blockPlaced);
-			queueBlock(player, "destroy", before);
+			queueBlock(player, before, blockPlaced);
 			return false;
 		}
 		
@@ -288,8 +418,7 @@ public class LogBlock extends Plugin
 			if (after.getType() == blockAt.getType())
 				return false;
 			
-			queueBlock(player, "destroy", blockAt);
-			queueBlock(player, "create", after);
+			queueBlock(player, blockAt, after);
 			return false;
 		}
 	} // end LBListener
@@ -316,7 +445,7 @@ public class LogBlock extends Plugin
 				try {
 					conn = getConnection();
 					conn.setAutoCommit(false);
-					ps = conn.prepareStatement("INSERT INTO blocks (date, player, action, type, x, y, z) VALUES (now(),?,?,?,?,?,?)", Statement.RETURN_GENERATED_KEYS);
+					ps = conn.prepareStatement("INSERT INTO blocks (date, player, replaced, type, x, y, z) VALUES (now(),?,?,?,?,?,?)", Statement.RETURN_GENERATED_KEYS);
 
 					while (count < 100 && start+delay > (System.currentTimeMillis()/1000F))
 					{
@@ -325,7 +454,7 @@ public class LogBlock extends Plugin
 							continue;
 						//b.log();
 						ps.setString(1, b.name);
-						ps.setString(2, b.action);
+						ps.setInt(2, b.replaced);
 						ps.setInt(3, b.type);
 						ps.setInt(4, b.x);
 						ps.setInt(5, b.y);
@@ -354,14 +483,13 @@ public class LogBlock extends Plugin
 	private class BlockRow // start
 	{
 		public String name;
-		public String action;
-		public int type;
+		public int replaced, type;
 		public int x, y, z;
 		
-		BlockRow(String name, String action, int type, int x, int y, int z)
+		BlockRow(String name, int replaced, int type, int x, int y, int z)
 		{
 			this.name = name;
-			this.action = action;
+			this.replaced = replaced;
 			this.type = type;
 			this.x = x;
 			this.y = y;
@@ -370,7 +498,26 @@ public class LogBlock extends Plugin
 		
 		public void log()
 		{
-			log.info("name: " + name + " action: " + action + " type: " + type + " x: " + x + " y: " + y + " z: " + z);
+			log.info("name: " + name + " before type: " + replaced + " type: " + type + " x: " + x + " y: " + y + " z: " + z);
 		}
-	} // end MyRow
+	} // end BlockRow
+	
+	private class Result
+	{
+		public String player;
+		public int created;
+		public int destroyed;
+		
+		Result(String player, int c, int d)
+		{
+			this.player = player;
+			this.created = c;
+			this.destroyed = d;
+		}
+		
+		public String toString()
+		{
+			return(String.format("%-6d %-6d %s", created, destroyed, player));
+		}
+	}
 } // end LogBlock
