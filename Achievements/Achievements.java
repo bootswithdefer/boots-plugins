@@ -20,7 +20,6 @@ import net.minecraft.server.MinecraftServer;
 
 public class Achievements extends Plugin
 {
-	private boolean versionCheck = true;
    private String name = "Achievements";
    private int version = 11;
    private boolean stopTimer = false;
@@ -333,7 +332,6 @@ public class Achievements extends Plugin
          delay = properties.getInt("achievements-delay", 300);
 			prefix = properties.getString("achievements-prefix", "ACHIEVEMENT: ");
          color = properties.getString("achievements-color", MyColors.LightBlue);
-			versionCheck = properties.getBoolean("boots-version-check", true);
       } 
          catch (Exception e) {
             log.log(Level.SEVERE, "Exception while reading from server.properties", e);
@@ -355,7 +353,7 @@ public class Achievements extends Plugin
 	
 	public void initialize()
 	{
-		new VersionCheck(name, version, versionCheck);
+		new VersionCheck(name, version);
 		
 		AchievementsListener listener = new AchievementsListener();
 		etc.getLoader().addListener(PluginLoader.Hook.LOGIN, listener, this, PluginListener.Priority.LOW);
