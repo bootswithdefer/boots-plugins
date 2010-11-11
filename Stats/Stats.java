@@ -19,7 +19,7 @@ import net.minecraft.server.MinecraftServer;
 public class Stats extends Plugin
 {
 	private String name = "Stats";
-	private int version = 11;
+	private int version = 12;
 	private PlayerMap playerStats = new PlayerMap();
 	private boolean stopTimer = false;
 	private String directory = "stats";
@@ -94,7 +94,7 @@ public class Stats extends Plugin
 		etc.getLoader().addListener(PluginLoader.Hook.IPBAN, listener, this, PluginListener.Priority.MEDIUM);
 		etc.getLoader().addListener(PluginLoader.Hook.KICK, listener, this, PluginListener.Priority.MEDIUM);
 		etc.getLoader().addListener(PluginLoader.Hook.BLOCK_CREATED, listener, this, PluginListener.Priority.MEDIUM);
-		etc.getLoader().addListener(PluginLoader.Hook.BLOCK_DESTROYED, listener, this, PluginListener.Priority.MEDIUM);
+		etc.getLoader().addListener(PluginLoader.Hook.BLOCK_BROKEN, listener, this, PluginListener.Priority.MEDIUM);
 		etc.getLoader().addListener(PluginLoader.Hook.DISCONNECT, listener, this, PluginListener.Priority.MEDIUM);
 		etc.getLoader().addListener(PluginLoader.Hook.PLAYER_MOVE, listener, this, PluginListener.Priority.MEDIUM);
 		etc.getLoader().addListener(PluginLoader.Hook.ARM_SWING, listener, this, PluginListener.Priority.MEDIUM);
@@ -126,6 +126,8 @@ public class Stats extends Plugin
 		
 	private void updateStat(Player player, String statType, Block block, int num)
 	{
+	   if (block.getType() <= 0)
+			return;
 		String blockName = etc.getDataSource().getItem(block.getType());
 		updateStat(player.getName(), statType, blockName, num);
 	}
@@ -343,21 +345,24 @@ public class Stats extends Plugin
 			
 			if (before.getType() == blockPlaced.getType())
 				return false;
-				
+
+//			log.info("Create: " + etc.getDataSource().getItem(before.getType()) + " " + etc.getDataSource().getItem(blockPlaced.getType()));
+
 			updateStat(player, "blockcreate", blockPlaced);
 			updateStat(player, "blockdestroy", before);
 			return false;
 		}
 		
-		public boolean onBlockDestroy(Player player, Block blockAt)
+		public boolean onBlockBreak(Player player, Block blockAt)
 		{
-			Block after = new Block(etc.getServer().getBlockIdAt(blockAt.getX(), blockAt.getY(), blockAt.getZ()), blockAt.getX(), blockAt.getY(), blockAt.getZ());
+//			Block after = new Block(etc.getServer().getBlockIdAt(blockAt.getX(), blockAt.getY(), blockAt.getZ()), blockAt.getX(), blockAt.getY(), blockAt.getZ());
+//			log.info("Break: " + etc.getDataSource().getItem(blockAt.getType()) + " " + etc.getDataSource().getItem(after.getType()));
 			
-			if (after.getType() == blockAt.getType())
-				return false;
-				
+//			if (after.getType() == blockAt.getType())
+//				return false;
+
 			updateStat(player, "blockdestroy", blockAt);
-			updateStat(player, "blockcreate", after);
+//			updateStat(player, "blockcreate", after);
 			return false;
 		}
 		
