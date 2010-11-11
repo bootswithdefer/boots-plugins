@@ -1,21 +1,23 @@
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.HashMap;
-import java.util.logging.Logger;
-import java.util.logging.Level;
+import java.util.logging.*;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.text.SimpleDateFormat;
 
 import java.sql.*;
+import java.io.*;
 
 import net.minecraft.server.MinecraftServer;
 
 public class LogBlock extends Plugin
 {
-	private String name = "LogBlock";
-	private int version = 7;
+	private static String name = "LogBlock";
+	private static int version = 8;
+	private boolean debug = false;
 	private String dbDriver = "com.mysql.jdbc.Driver";
 	private String dbUrl = "";
 	private String dbUsername = "";
@@ -29,10 +31,13 @@ public class LogBlock extends Plugin
 	
 	static final Logger log = Logger.getLogger("Minecraft");
 	
+	static final Logger lblog = Logger.getLogger(name);
+	
 	public void enable()
 	{
 		PropertiesFile properties	= new	PropertiesFile("logblock.properties");
 		try {
+			debug = properties.getBoolean("debug", false);
 			dbDriver = properties.getString("driver", "com.mysql.jdbc.Driver");
 			dbUrl = properties.getString("url", "jdbc:mysql://localhost:3306/db");
 			dbUsername = properties.getString("username", "user");
@@ -64,25 +69,25 @@ public class LogBlock extends Plugin
 
 	public void initialize()
 	{
+		try {
+			FileHandler lbfh = new FileHandler(name + ".log", true);
+			lbfh.setFormatter(new LogFormatter());
+			lblog.addHandler(lbfh);
+		} catch (IOException ex) {
+			log.info(name + " unable to create logger");
+		}
+
 		new VersionCheck(name, version);
 		
 		LBListener listener = new LBListener();
 		etc.getLoader().addListener(PluginLoader.Hook.COMMAND, listener, this, PluginListener.Priority.LOW);
 		etc.getLoader().addListener(PluginLoader.Hook.BLOCK_CREATED, listener, this, PluginListener.Priority.LOW);
-		etc.getLoader().addListener(PluginLoader.Hook.BLOCK_DESTROYED, listener, this, PluginListener.Priority.LOW);
+		etc.getLoader().addListener(PluginLoader.Hook.BLOCK_BROKEN, listener, this, PluginListener.Priority.LOW);
 	}
 	
 	private Connection getConnection() throws SQLException
 	{
 		return DriverManager.getConnection("jdbc:jdc:jdcpool");
-	}
-	
-	private void queueBlock(Player player, Block before, Block after)
-	{
-		BlockRow row = new BlockRow(player.getName(), before.getType(), after.getType(), after.getX(), after.getY(), after.getZ());
-		boolean result = bqueue.offer(row);
-		if (!result)
-			log.info(name + " failed to queue block for " + player.getName());
 	}
 	
 	private void showBlockHistory(Player player, Block b)
@@ -92,6 +97,9 @@ public class LogBlock extends Plugin
 		Connection conn = null;
 		PreparedStatement ps = null;
 		ResultSet rs = null;
+		Timestamp date;
+		SimpleDateFormat formatter = new SimpleDateFormat("MM-dd hh:mm:ss");
+		
 		try {
 			conn = getConnection();
 			conn.setAutoCommit(false);
@@ -102,7 +110,15 @@ public class LogBlock extends Plugin
 			rs = ps.executeQuery();
 			while (rs.next())
 			{
-				String msg = rs.getString("date") + " " + rs.getString("player") + " " + etc.getDataSource().getItem(rs.getInt("replaced")) + "-" + etc.getDataSource().getItem(rs.getInt("type"));
+				date = rs.getTimestamp("date");
+				String datestr = formatter.format(date);
+				String msg = datestr + " " + rs.getString("player") + " ";
+				if (rs.getInt("type") == 0)
+					msg = msg + "destroyed " + etc.getDataSource().getItem(rs.getInt("replaced"));
+				else if (rs.getInt("replaced") == 0)
+					msg = msg + "created " + etc.getDataSource().getItem(rs.getInt("type"));
+				else
+					msg = msg + "replaced " + etc.getDataSource().getItem(rs.getInt("replaced")) + " with " + etc.getDataSource().getItem(rs.getInt("type"));
 				player.sendMessage(Colors.Gold + msg);
 				hist = true;
 			}
@@ -357,7 +373,25 @@ public class LogBlock extends Plugin
 			}
 		}
 	}
-	
+
+	private void queueBlock(Player player, Block before, Block after)
+	{
+	   int type = 0;
+	   if (after != null) {
+			type = after.getType();
+			if (type < 0)
+				return;
+		}
+		if (before.getType() < 0)
+			return;
+		BlockRow row = new BlockRow(player.getName(), before.getType(), type, before.getX(), before.getY(), before.getZ());
+		boolean result = bqueue.offer(row);
+		if (debug)
+			lblog.info(row.toString());
+		if (!result)
+			log.info(name + " failed to queue block for " + player.getName());
+	}
+
 	public class LBListener extends PluginListener // start
 	{
 	   public boolean onCommand(Player player, String[] split)
@@ -411,14 +445,9 @@ public class LogBlock extends Plugin
 			return false;
 		}
 		
-		public boolean onBlockDestroy(Player player, Block blockAt)
+		public boolean onBlockBreak(Player player, Block block)
 		{
-			Block after = new Block(etc.getServer().getBlockIdAt(blockAt.getX(), blockAt.getY(), blockAt.getZ()), blockAt.getX(), blockAt.getY(), blockAt.getZ());
-			
-			if (after.getType() == blockAt.getType())
-				return false;
-			
-			queueBlock(player, blockAt, after);
+			queueBlock(player, block, null);
 			return false;
 		}
 	} // end LBListener
@@ -496,13 +525,13 @@ public class LogBlock extends Plugin
 			this.z = z;
 		}
 		
-		public void log()
+		public String toString()
 		{
-			log.info("name: " + name + " before type: " + replaced + " type: " + type + " x: " + x + " y: " + y + " z: " + z);
+			return("name: " + name + " before type: " + replaced + " type: " + type + " x: " + x + " y: " + y + " z: " + z);
 		}
 	} // end BlockRow
 	
-	private class Result
+	private class Result // start
 	{
 		public String player;
 		public int created;
@@ -519,5 +548,13 @@ public class LogBlock extends Plugin
 		{
 			return(String.format("%-6d %-6d %s", created, destroyed, player));
 		}
-	}
+	} // end Result
+
+	private class LogFormatter extends Formatter //start
+	{
+		public String format(LogRecord rec)
+		{
+			return formatMessage(rec) + "\n";
+		}
+	} // end LogFormatter	
 } // end LogBlock
