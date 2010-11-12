@@ -11,7 +11,7 @@ public class Warn extends Plugin
 {
 	private boolean versionCheck = true;
 	private String name = "Warn";
-	private int version = 4;
+	private int version = 5;
 	private int delay = 10;
 	private boolean running = false;
 	private boolean blockCommands = false;
