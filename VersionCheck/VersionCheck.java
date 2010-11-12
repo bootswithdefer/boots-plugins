@@ -7,8 +7,6 @@ import java.net.URLConnection;
 
 public class VersionCheck
 {
-	private String name = "none";
-	private int version = 0;
 	static final Logger log	= Logger.getLogger("Minecraft");
 
 	VersionCheck(String name, int version)
@@ -25,13 +23,20 @@ public class VersionCheck
 		if (!check)
 			return;
 
-		this.name = name;
-		this.version = version;
-		new Thread(new Runner()).start();
+		new Thread(new Runner(name, version)).start();
 	}
 	
 	private class Runner implements Runnable
 	{
+		private String name = "none";
+		private int version = 0;
+		
+		Runner(String name, int version)
+		{
+			this.name = name;
+			this.version = version;
+		}
+
 		public void run()
 		{
 			try {
@@ -46,6 +51,7 @@ public class VersionCheck
 				if (ver > version)
 					log.info(name + " v" + ver + " available (you have v" + version + ")");
 			} catch (Exception ex) {
+				log.log(Level.SEVERE, "VersionCheck exception", ex);
 			}
 		}
 	}
