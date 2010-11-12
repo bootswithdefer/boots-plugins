@@ -62,7 +62,8 @@ public class LogBlock extends Plugin
 
 	public void disable()
 	{
-		consumer.stop();
+		if (consumer != null)
+			consumer.stop();
 		consumer = null;
 		log.info(name + " v" + version + " Plugin Disabled.");
 	}
@@ -126,8 +127,10 @@ public class LogBlock extends Plugin
 			log.log(Level.SEVERE, name + " SQL exception", ex);
 		} finally {
 			try {
-				rs.close();
-				ps.close();
+				if (rs != null)
+					rs.close();
+				if (ps != null)
+					ps.close();
 				conn.close();
 			} catch (SQLException ex) {
 				log.log(Level.SEVERE, name + " SQL exception on close", ex);
@@ -189,8 +192,10 @@ public class LogBlock extends Plugin
 				log.log(Level.SEVERE, name + " SQL exception", ex);
 			} finally {
 				try {
-					rs.close();
-					ps.close();
+					if (rs != null)
+						rs.close();
+					if (ps != null)
+						ps.close();
 					conn.close();
 				} catch (SQLException ex) {
 					log.log(Level.SEVERE, name + " SQL exception on close", ex);
@@ -274,8 +279,10 @@ public class LogBlock extends Plugin
 				log.log(Level.SEVERE, name + " SQL exception", ex);
 			} finally {
 				try {
-					rs.close();
-					ps.close();
+					if (rs != null)
+						rs.close();
+					if (ps != null)
+						ps.close();
 					conn.close();
 				} catch (SQLException ex) {
 					log.log(Level.SEVERE, name + " SQL exception on close", ex);
@@ -345,8 +352,10 @@ public class LogBlock extends Plugin
 				log.log(Level.SEVERE, name + " SQL exception", ex);
 			} finally {
 				try {
-					rs.close();
-					ps.close();
+					if (rs != null)
+						rs.close();
+					if (ps != null)
+						ps.close();
 					conn.close();
 				} catch (SQLException ex) {
 					log.log(Level.SEVERE, name + " SQL exception on close", ex);
