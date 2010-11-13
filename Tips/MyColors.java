@@ -21,6 +21,8 @@ public class MyColors
 
 	public static String codeToColor(String color)
 	{
+		if (color == null || color.length() == 0)
+			return "";
 		return ColorString + color;
 	}
 }
