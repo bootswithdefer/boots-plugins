@@ -104,9 +104,9 @@ public class LogBlock extends Plugin
 		try {
 			conn = getConnection();
 			conn.setAutoCommit(false);
-			ps = conn.prepareStatement("SELECT * from blocks where x = ? and y = ? and z = ? order by date desc limit 10", Statement.RETURN_GENERATED_KEYS);
-			ps.setInt(1, b.getX());
-			ps.setInt(2, b.getY());
+			ps = conn.prepareStatement("SELECT * from blocks where y = ? and x = ? and z = ? order by date desc limit 10", Statement.RETURN_GENERATED_KEYS);
+			ps.setInt(1, b.getY());
+			ps.setInt(2, b.getX());
 			ps.setInt(3, b.getZ());
 			rs = ps.executeQuery();
 			while (rs.next())
