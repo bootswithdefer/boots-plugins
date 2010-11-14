@@ -15,7 +15,7 @@ import net.minecraft.server.MinecraftServer;
 
 public class Tips extends Plugin {
    private String name = "Tips";
-	private int version = 7;
+	private int version = 8;
    private String location = "tips.txt";
    private String  color = MyColors.LightBlue;
    private String  prefix = "TIP: ";
@@ -80,12 +80,15 @@ public class Tips extends Plugin {
 			return;
 		if (tipnum < 0 || tipnum >= tips.size())
 			return;
-      String message = MyColors.codeToColor(color) + prefix + tips.get(tipnum);
-      for (Player p : etc.getServer().getPlayerList()) {
-         if (p != null /*&& !p.canUseCommand("/notips")*/) {
-            p.sendMessage(message);
-         }
-      }
+		for (String tip : tips.get(tipnum).split("@"))
+		{
+	      String message = MyColors.codeToColor(color) + prefix + tip;
+	      for (Player p : etc.getServer().getPlayerList()) {
+	         if (p != null /*&& !p.canUseCommand("/notips")*/) {
+	            p.sendMessage(message);
+	         }
+	      }
+		}
    }
 
    private void saveTips()
@@ -113,7 +116,7 @@ public class Tips extends Plugin {
 
    private void loadTips() {
       tips = new ArrayList<String>();
-           if (!new File(location).exists()) {
+      if (!new File(location).exists()) {
           saveTips();
           return;
       }
@@ -147,6 +150,8 @@ public class Tips extends Plugin {
 			prefix = "";
 		else if (prefix.charAt(prefix.length()-1) != ' ')
 			prefix = prefix + " ";
+		if (color == null || color.length() == 0)
+			color = MyColors.LightBlue;
       etc.getInstance().addCommand("/tip", " - display a random tip.");
       loadTips();
       startTimer();
@@ -186,10 +191,15 @@ public class Tips extends Plugin {
 				return false;
 
 			if (split.length == 1 || !player.canUseCommand("/tipadmin")) {
+				if (tips.size() == 0) {
+					player.sendMessage(MyColors.codeToColor(color) + "No tips.");
+					return true;
+				}
 				if (generator == null)
 					generator = new Random();
 				int tipNum = generator.nextInt(tips.size());
-	         player.sendMessage(MyColors.codeToColor(color) + prefix + tips.get(tipNum));
+				for (String tip: tips.get(tipNum).split("@"))
+		         player.sendMessage(MyColors.codeToColor(color) + prefix + tip);
 	         return true;
 	      }
 
@@ -230,12 +240,13 @@ public class Tips extends Plugin {
 	            return true;
 	         }
 	         String line = splittoline(split, 2);
-	         int tip = findtip(line);
-	         if (tip == -1) {
+	         int tipNum = findtip(line);
+	         if (tipNum == -1) {
 	            player.sendMessage(Colors.Rose + "Not tip found containing '" + line + "'.");
 	            return true;
 	         }
-	         player.sendMessage(MyColors.codeToColor(color) + prefix + tip + ": " + tips.get(tip));
+				for (String tip: tips.get(tipNum).split("@"))
+		         player.sendMessage(MyColors.codeToColor(color) + prefix + tipNum + ": " + tip);
 	         return true;
 	      }
 	      if (split[1].equalsIgnoreCase("b")) {
