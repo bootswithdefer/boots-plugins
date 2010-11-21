@@ -46,7 +46,7 @@ public class PlayerMap
 			return;
 		if (this.stats.size() == 0)
 			return;
-		log.info("Saving " + this.stats.size() + " stat files...");
+//		log.info("Saving " + this.stats.size() + " stat files...");
 		for (String player: this.stats.keySet())
 			save(directory, player);
 	}
@@ -60,7 +60,7 @@ public class PlayerMap
 			return;
 		
 		String location = directory + "/" + player + ".txt";
-		log.info("Loading " + location);
+//		log.info("Loading " + location);
 		
 		CategoryMap cstats = new CategoryMap();
 		cstats.load(location);
@@ -70,7 +70,7 @@ public class PlayerMap
 	
 	public void unload(String directory, String player)
 	{
-		log.info("Unloading " + player);
+//		log.info("Unloading " + player);
 		save(directory, player);
 		this.stats.remove(player);
 	}

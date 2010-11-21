@@ -126,7 +126,7 @@ public class Stats extends Plugin
 		
 	private void updateStat(Player player, String statType, Block block, int num)
 	{
-	   if (block.getType() <= 0)
+	   if (block.getType() <= 0 || (block.getX() ==0 && block.getY() == 0 && block.getZ() == 0))
 			return;
 		String blockName = etc.getDataSource().getItem(block.getType());
 		updateStat(player.getName(), statType, blockName, num);
