@@ -333,9 +333,15 @@ public class Achievements extends Plugin
 			prefix = properties.getString("achievements-prefix", "ACHIEVEMENT: ");
          color = properties.getString("achievements-color", MyColors.LightBlue);
       } 
-         catch (Exception e) {
-            log.log(Level.SEVERE, "Exception while reading from server.properties", e);
-         }
+      catch (Exception e) {
+         log.log(Level.SEVERE, "Exception while reading from server.properties", e);
+      }
+	 	try {
+			new File(directory).mkdir();
+		} catch (Exception e) {
+			log.log(Level.SEVERE, "Exception while creating directory " + directory, e);
+		}
+		
       etc.getInstance().addCommand("/achievements", " - Lists your achievements.");
       etc.getInstance().addCommand("/listachievements", " - Lists all achievements.");
       etc.getInstance().addCommand("/checkachievements", " - Checks achievements.");
