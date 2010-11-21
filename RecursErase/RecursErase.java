@@ -1,4 +1,6 @@
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.logging.*;
 
 import net.minecraft.server.MinecraftServer;
@@ -6,22 +8,25 @@ import net.minecraft.server.MinecraftServer;
 public class RecursErase extends Plugin
 {
 	private static final String name = "RecursErase";
-	private static final String command = "/recurserase";
-	private static final int version = 1;
+	private static final String command = "/reer";
+	private static final int version = 2;
 	static final Logger log = Logger.getLogger("Minecraft");
+
+	private ArrayList<Integer> naturalBlocks = new ArrayList<Integer>(Arrays.asList(new Integer[] {1, 2, 3, 12, 13, 17, 18}));
 	
-	private int toolID = 18;
+	private int toolID = 83;
 	private int biteSize = 50;
 	private int gapSize = 1;
 	private LinkedBlockingQueue<Block> bqueue = new LinkedBlockingQueue<Block>();
 	String eraser = null;
+	private boolean nonat = false;
 	
 	public void enable()
 	{
 		PropertiesFile properties	= new	PropertiesFile("server.properties");
 		try {
 			biteSize = properties.getInt("recurserase-bite-size", 50);
-			toolID = properties.getInt("recurserase-tool-id", 18);
+			toolID = properties.getInt("recurserase-tool-id", 83);
 			gapSize = properties.getInt("recurserase-gap-size", 1);
 		} catch (Exception ex) {
 			log.log(Level.SEVERE, "Exception while reading from server.properties", ex);
@@ -32,6 +37,7 @@ public class RecursErase extends Plugin
 
 	public void disable()
 	{
+		stop();
 		log.info(name + " v" + version + " Plugin Disabled.");
 	}
 
@@ -47,7 +53,6 @@ public class RecursErase extends Plugin
 	
 	public void start(Block block)
 	{
-		Block adj = block;
 		bqueue.offer(block);
 	}
 	
@@ -67,19 +72,23 @@ public class RecursErase extends Plugin
 			return;
 		
 		for (int x = b.getX()-gapSize; x <= b.getX()+gapSize; x++)
+		{
 			for (int y = b.getY(); y <= b.getY()+gapSize; y++)
+			{
 				for (int z = b.getZ()-gapSize; z <= b.getZ()+gapSize; z++)
 				{
 					if (x == b.getX() && y == b.getY() && z == b.getZ())
 						continue;
 					Block adj = etc.getServer().getBlockAt(x, y, z);
-					if (adj.getType() == 0)
+					if (adj.getType() == 0 || (nonat && naturalBlocks.contains(adj.getType())))
 						continue;
 					bqueue.offer(adj);
 					adj.setType(0);
 					etc.getServer().setBlock(adj);
 					count++;
 				}
+			}
+		}
 		b.setType(0);
 		etc.getServer().setBlock(b);
 		if (count < biteSize)
@@ -93,8 +102,29 @@ public class RecursErase extends Plugin
 			if (!split[0].equalsIgnoreCase(command) || !player.canUseCommand(command))
 				return false;
 
-			stop();
-			player.sendMessage(Colors.Rose + "Erasing stopped.");
+			if (split.length < 2)
+			{
+				stop();
+				player.sendMessage(Colors.Rose + "Erasing stopped.");
+				return true;
+			}
+			
+			if (split[1].equalsIgnoreCase("nonat"))
+			{
+				if (!nonat)
+				{
+					nonat = true;
+					player.sendMessage(Colors.Rose + "Set to ignore 'natural blocks'.");
+				}
+				else
+				{
+					nonat = false;
+					player.sendMessage(Colors.Rose + "Set to include 'natural blocks'.");
+				}
+				return true;
+			}
+			
+			player.sendMessage(Colors.Rose + "Usage: " + command);
 			return true;
 		}
 
@@ -102,6 +132,11 @@ public class RecursErase extends Plugin
 		{
 			if (itemInHand == toolID && player.canUseCommand(command))
 			{
+				if (eraser != null && !player.getName().equals(eraser))
+				{
+					player.sendMessage(Colors.Rose + eraser + " is erasing something, wait until they're done.");
+					return true;
+				}
 				player.sendMessage(Colors.Rose + "Erasing started.");
 				start(blockPlaced);
 				eraser = player.getName();
@@ -120,6 +155,11 @@ public class RecursErase extends Plugin
 				return;
 			player.sendMessage(Colors.Rose + "Erasing (" + bqueue.size() + " left)...");
 			run(0);
+			if (bqueue.isEmpty())
+			{
+				player.sendMessage(Colors.Rose + "Done.");
+				eraser = null;
+			}
 		}
 	}
 }
