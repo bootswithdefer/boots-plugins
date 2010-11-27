@@ -180,7 +180,7 @@ public class Stats extends Plugin
 				playerStats.save(directory, p.getName());
 				count++;
 			}
-		log.info("Saved " + count + "/" + playerStats.size() + " stat files...");
+//		log.info("Saved " + count + "/" + playerStats.size() + " stat files...");
 	}
 	
 	private boolean inIgnoredGroup(Player player)
