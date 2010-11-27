@@ -32,11 +32,11 @@ public class Rtfm extends Plugin
 	{
 		public boolean onCommand(Player player, String[] split) {
 			if (split[0].equalsIgnoreCase("/rtfm")) {
-	 			if (!player.isInGroup("rtfm")) {
+	 			if (!player.isInGroup("builder")) {
 					boolean newUser = false;
 					String playername = player.getName();
 					// update player's group
-					player.addGroup("rtfm");	
+					player.addGroup("builder");	
 	
 			                if (!etc.getDataSource().doesPlayerExist(player.getName())) {
 	       			             newUser = true;
@@ -52,18 +52,19 @@ public class Rtfm extends Plugin
 						if (player == p)
 							continue;
 						p.sendMessage(Colors.Yellow + "Congratulations to "+playername+" for reading the manual!");
-						if (!p.isInGroup("rtfm"))
+						if (!p.isInGroup("builder"))
 							p.sendMessage(Colors.Yellow + "Maybe you should try reading /motd too!");
 					}
 				}
 				
 				etc.getLoader().callCustomHook("award achievement", new Object[] {player.getName(), "RTFM"});
 	
-				player.sendMessage(Colors.Rose + "You can now build (with certain exceptions)!");
-				player.sendMessage(Colors.Yellow + "Certain areas are protected from building (like spawn).");
+				player.sendMessage(Colors.Rose + "You can now build except with 500 blocks of spawn.");
+				player.sendMessage(Colors.Yellow + "Certain other areas are protected from building.");
 				player.sendMessage(Colors.Rose + "Tell people to read /motd, do NOT tell them to /rtfm");
 				player.sendMessage(Colors.Yellow + "Visit the web site in /motd for rules and pictures.");
 				player.sendMessage(Colors.Rose + "Helpful commands: /help, /spawn, /kit, /listwarps, /who");
+				player.sendMessage(Colors.Yellow + "To get to the free build spawn: /warp FreeBuild");
 				
 				return true;
 			}
