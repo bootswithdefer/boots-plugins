@@ -9,7 +9,7 @@ public class RecursErase extends Plugin
 {
 	private static final String name = "RecursErase";
 	private static final String command = "/reer";
-	private static final int version = 2;
+	private static final int version = 3;
 	static final Logger log = Logger.getLogger("Minecraft");
 
 	private ArrayList<Integer> naturalBlocks = new ArrayList<Integer>(Arrays.asList(new Integer[] {1, 2, 3, 12, 13, 17, 18}));
@@ -48,7 +48,7 @@ public class RecursErase extends Plugin
 		REListener listener = new REListener();
 		etc.getLoader().addListener(PluginLoader.Hook.COMMAND, listener, this, PluginListener.Priority.MEDIUM);
 		etc.getLoader().addListener(PluginLoader.Hook.ARM_SWING, listener, this, PluginListener.Priority.MEDIUM);
-		etc.getLoader().addListener(PluginLoader.Hook.BLOCK_CREATED, listener, this, PluginListener.Priority.MEDIUM);
+		etc.getLoader().addListener(PluginLoader.Hook.BLOCK_RIGHTCLICKED, listener, this, PluginListener.Priority.MEDIUM);
 	}
 	
 	public void start(Block block)
@@ -128,21 +128,20 @@ public class RecursErase extends Plugin
 			return true;
 		}
 
-		public boolean onBlockCreate(Player player, Block blockPlaced, Block blockClicked, int itemInHand)
+		public void onBlockRightClicked(Player player, Block blockClicked, Item item)
 		{
-			if (itemInHand == toolID && player.canUseCommand(command))
+			if (item.getItemId() != toolID)
+				return;
+			if (!player.canUseCommand(command))
+				return;
+			if (eraser != null && !player.getName().equals(eraser))
 			{
-				if (eraser != null && !player.getName().equals(eraser))
-				{
-					player.sendMessage(Colors.Rose + eraser + " is erasing something, wait until they're done.");
-					return true;
-				}
-				player.sendMessage(Colors.Rose + "Erasing started.");
-				start(blockPlaced);
-				eraser = player.getName();
-				return true;
+				player.sendMessage(Colors.Rose + eraser + " is erasing something, wait until they're done.");
+				return;
 			}
-			return false;
+			player.sendMessage(Colors.Rose + "Erasing started.");
+			start(blockClicked);
+			eraser = player.getName();
 		}
 
 		public void onArmSwing(Player player)
