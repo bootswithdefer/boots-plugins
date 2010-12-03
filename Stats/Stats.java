@@ -19,13 +19,14 @@ import net.minecraft.server.MinecraftServer;
 public class Stats extends Plugin
 {
 	private String name = "Stats";
-	private int version = 13;
+	private int version = 15;
 	private PlayerMap playerStats = new PlayerMap();
 	private boolean stopTimer = false;
 	private String directory = "stats";
 	private int savedelay = 30;
 	private String[] ignoredGroups = new String[] {""};
 	private final String defaultCategory = "stats";
+	private Block lastface = null;
 
 	static final Logger log	= Logger.getLogger("Minecraft");
 
@@ -93,13 +94,19 @@ public class Stats extends Plugin
 		etc.getLoader().addListener(PluginLoader.Hook.BAN, listener, this, PluginListener.Priority.MEDIUM);
 		etc.getLoader().addListener(PluginLoader.Hook.IPBAN, listener, this, PluginListener.Priority.MEDIUM);
 		etc.getLoader().addListener(PluginLoader.Hook.KICK, listener, this, PluginListener.Priority.MEDIUM);
-		etc.getLoader().addListener(PluginLoader.Hook.BLOCK_CREATED, listener, this, PluginListener.Priority.MEDIUM);
+		etc.getLoader().addListener(PluginLoader.Hook.BLOCK_PLACE, listener, this, PluginListener.Priority.MEDIUM);
 		etc.getLoader().addListener(PluginLoader.Hook.BLOCK_BROKEN, listener, this, PluginListener.Priority.MEDIUM);
+		etc.getLoader().addListener(PluginLoader.Hook.BLOCK_RIGHTCLICKED, listener, this, PluginListener.Priority.MEDIUM);
 		etc.getLoader().addListener(PluginLoader.Hook.DISCONNECT, listener, this, PluginListener.Priority.MEDIUM);
 		etc.getLoader().addListener(PluginLoader.Hook.PLAYER_MOVE, listener, this, PluginListener.Priority.MEDIUM);
 		etc.getLoader().addListener(PluginLoader.Hook.ARM_SWING, listener, this, PluginListener.Priority.MEDIUM);
 		etc.getLoader().addListener(PluginLoader.Hook.ITEM_DROP, listener, this, PluginListener.Priority.MEDIUM);
+		etc.getLoader().addListener(PluginLoader.Hook.ITEM_PICK_UP, listener, this, PluginListener.Priority.MEDIUM);
+		etc.getLoader().addListener(PluginLoader.Hook.ITEM_USE, listener, this, PluginListener.Priority.MEDIUM);
 		etc.getLoader().addListener(PluginLoader.Hook.TELEPORT, listener, this, PluginListener.Priority.MEDIUM);
+		etc.getLoader().addListener(PluginLoader.Hook.HEALTH_CHANGE, listener, this, PluginListener.Priority.MEDIUM);
+		etc.getLoader().addListener(PluginLoader.Hook.IGNITE, listener, this, PluginListener.Priority.MEDIUM);
+		etc.getLoader().addListener(PluginLoader.Hook.VEHICLE_ENTERED, listener, this, PluginListener.Priority.MEDIUM);
 		
 		try {
 			etc.getLoader().addCustomListener(new StatsGet());
@@ -135,7 +142,15 @@ public class Stats extends Plugin
 	private void updateStat(Player player, String statType, Item item)
 	{
 		String itemName = etc.getDataSource().getItem(item.getItemId());
-		updateStat(player.getName(), statType, itemName, item.getAmount());
+		int amount = item.getAmount();
+		if (amount == 0)
+			amount = 1;
+		updateStat(player.getName(), statType, itemName, amount);
+	}
+
+	private void updateStat(Player player, String category, String key, int val)
+	{
+		updateStat(player.getName(), category, key, val);
 	}
 
 	// primary updateStat
@@ -339,30 +354,22 @@ public class Stats extends Plugin
 			updateStat(player, "kick");
 		}
 
-		public boolean onBlockCreate(Player player, Block blockPlaced, Block blockClicked, int itemInHand)
+		public void onBlockRightClicked(Player player, Block blockClicked, Item item)
 		{
-			Block before = new Block(etc.getServer().getBlockIdAt(blockPlaced.getX(), blockPlaced.getY(), blockPlaced.getZ()), blockPlaced.getX(), blockPlaced.getY(), blockPlaced.getZ());
-			
-			if (before.getType() == blockPlaced.getType())
-				return false;
+			lastface = blockClicked.getFace(blockClicked.getFaceClicked());
+		}
 
-//			log.info("Create: " + etc.getDataSource().getItem(before.getType()) + " " + etc.getDataSource().getItem(blockPlaced.getType()));
-
+		public boolean onBlockPlace(Player player, Block blockPlaced, Block blockClicked, Item itemInHand)
+		{
 			updateStat(player, "blockcreate", blockPlaced);
-			updateStat(player, "blockdestroy", before);
+			if (lastface != null)
+				updateStat(player, "blockdestroy", lastface);
 			return false;
 		}
 		
-		public boolean onBlockBreak(Player player, Block blockAt)
+		public boolean onBlockBreak(Player player, Block block)
 		{
-//			Block after = new Block(etc.getServer().getBlockIdAt(blockAt.getX(), blockAt.getY(), blockAt.getZ()), blockAt.getX(), blockAt.getY(), blockAt.getZ());
-//			log.info("Break: " + etc.getDataSource().getItem(blockAt.getType()) + " " + etc.getDataSource().getItem(after.getType()));
-			
-//			if (after.getType() == blockAt.getType())
-//				return false;
-
-			updateStat(player, "blockdestroy", blockAt);
-//			updateStat(player, "blockcreate", after);
+			updateStat(player, "blockdestroy", block);
 			return false;
 		}
 		
@@ -381,7 +388,58 @@ public class Stats extends Plugin
 		{
 			updateStat(player, "itemdrop", item);
 			return false;
-		}		
+		}
+
+		public boolean onItemPickUp(Player player, Item item)
+		{
+			updateStat(player, "itempickup", item);
+			return false;
+		}
+
+		public boolean onHealthChange(Player player, int oldValue, int newValue)
+		{
+			int change = newValue - oldValue;
+			if (change < 0) {
+				int damagetaken = get(player.getName(), defaultCategory, "damagetaken");
+				damagetaken += (change * -1);
+				updateStat(player, "damagetaken", damagetaken);
+			}
+			else if (change > 0)
+			{
+				int damagehealed = get(player.getName(), defaultCategory, "damagehealed");
+				damagehealed += change;
+				updateStat(player, "damagehealed", damagehealed);
+			}
+
+			return false;
+		}
+		
+		public boolean onItemUse(Player player, Item item)
+		{
+			updateStat(player, "itemuse", item);
+			return false;
+		}
+		
+		public boolean onIgnite(Block block, Player player)
+		{
+			if (player == null)
+				return false;
+			if (block.getStatus() != 2)
+				return false;
+			updateStat(player, "lighter");
+			return false;
+		}
+
+		public void onVehicleEnter(BaseVehicle vehicle, HumanEntity player)
+		{
+			Player p = vehicle.getPassenger();
+			if (p == null)
+				return;
+
+			String vehicleName = etc.getDataSource().getItem(vehicle.getId());
+
+			updateStat(p, "vehicleenter", vehicleName, 1);
+		}
 	}
 	// End Listener Class
 	
