@@ -16,7 +16,7 @@ import net.minecraft.server.MinecraftServer;
 public class LogBlock extends Plugin
 {
 	private static String name = "LogBlock";
-	private static int version = 8;
+	private static int version = 9;
 	private boolean debug = false;
 	private String dbDriver = "com.mysql.jdbc.Driver";
 	private String dbUrl = "";
@@ -26,6 +26,7 @@ public class LogBlock extends Plugin
 	private int defaultDist = 20;
 	private int toolID = 270; // 270 is wood pick
 	private Consumer consumer = null;
+	private Block lastface = null;
 	
 	private LinkedBlockingQueue<BlockRow> bqueue = new LinkedBlockingQueue<BlockRow>();
 	
@@ -82,7 +83,8 @@ public class LogBlock extends Plugin
 		
 		LBListener listener = new LBListener();
 		etc.getLoader().addListener(PluginLoader.Hook.COMMAND, listener, this, PluginListener.Priority.LOW);
-		etc.getLoader().addListener(PluginLoader.Hook.BLOCK_CREATED, listener, this, PluginListener.Priority.LOW);
+		etc.getLoader().addListener(PluginLoader.Hook.BLOCK_RIGHTCLICKED, listener, this, PluginListener.Priority.LOW);
+		etc.getLoader().addListener(PluginLoader.Hook.BLOCK_PLACE, listener, this, PluginListener.Priority.LOW);
 		etc.getLoader().addListener(PluginLoader.Hook.BLOCK_BROKEN, listener, this, PluginListener.Priority.LOW);
 	}
 	
@@ -385,15 +387,24 @@ public class LogBlock extends Plugin
 
 	private void queueBlock(Player player, Block before, Block after)
 	{
-	   int type = 0;
-	   if (after != null) {
-			type = after.getType();
-			if (type < 0)
-				return;
+		Block b = null;
+		int typeA = 0;
+		int typeB = 0;
+		if (after != null)
+		{
+			typeA = after.getType();
+			b = after;
 		}
-		if (before.getType() < 0)
+		if (before != null)
+		{
+			typeB = before.getType();
+			b = before;
+		}
+
+		if (b == null || typeA < 0 || typeB < 0)
 			return;
-		BlockRow row = new BlockRow(player.getName(), before.getType(), type, before.getX(), before.getY(), before.getZ());
+			
+		BlockRow row = new BlockRow(player.getName(), typeB, typeA, b.getX(), b.getY(), b.getZ());
 		boolean result = bqueue.offer(row);
 		if (debug)
 			lblog.info(row.toString());
@@ -436,21 +447,23 @@ public class LogBlock extends Plugin
 			}
 			return false;
 		}
-	
-		public boolean onBlockCreate(Player player, Block blockPlaced, Block blockClicked, int itemInHand)
+
+		public void onBlockRightClicked(Player player, Block blockClicked, Item item)
 		{
-			if (itemInHand == toolID && player.canUseCommand("/blockhistory"))
-			{
+			if (item.getItemId() == toolID && player.canUseCommand("/blockhistory"))
 				showBlockHistory(player, blockClicked);
-				return true;
-			}
-		
-			Block before = new Block(etc.getServer().getBlockIdAt(blockPlaced.getX(), blockPlaced.getY(), blockPlaced.getZ()), blockPlaced.getX(), blockPlaced.getY(), blockPlaced.getZ());
-			
-			if (before.getType() == blockPlaced.getType())
-				return false;
-				
-			queueBlock(player, before, blockPlaced);
+
+			lastface = blockClicked.getFace(blockClicked.getFaceClicked());
+//			if (debug)
+//				lblog.info("onBlockRightClicked: clicked " + blockClicked.getType() + " item " + item.getItemId() + " face " + blockClicked.getFace(blockClicked.getFaceClicked()).getType());
+		}		
+
+		public boolean onBlockPlace(Player player, Block blockPlaced, Block blockClicked, Item itemInHand)
+		{
+//			if (debug)
+//				lblog.info("onBlockPlace: placed " + blockPlaced.getType() + " clicked " + blockClicked.getType() + " item " + itemInHand.getItemId());
+
+			queueBlock(player, lastface, blockPlaced);
 			return false;
 		}
 		
