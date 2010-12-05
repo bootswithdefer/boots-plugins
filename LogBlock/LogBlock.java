@@ -16,7 +16,7 @@ import net.minecraft.server.MinecraftServer;
 public class LogBlock extends Plugin
 {
 	private static String name = "LogBlock";
-	private static int version = 9;
+	private static int version = 10;
 	private boolean debug = false;
 	private String dbDriver = "com.mysql.jdbc.Driver";
 	private String dbUrl = "";
@@ -487,19 +487,25 @@ public class LogBlock extends Plugin
 			
 			while (!stop)
 			{
-			   long start = System.currentTimeMillis();
+			   long start = System.currentTimeMillis()/1000L;
 				int count = 0;
 				
 				if (bqueue.size() > 100)
 					log.info(name + " queue size " + bqueue.size());
-				
+					
+//				if (debug)
+//					lblog.info("Running DB thread at " + start);
+					
 				try {
 					conn = getConnection();
 					conn.setAutoCommit(false);
 					ps = conn.prepareStatement("INSERT INTO blocks (date, player, replaced, type, x, y, z) VALUES (now(),?,?,?,?,?,?)", Statement.RETURN_GENERATED_KEYS);
 
-					while (count < 100 && start+delay > (System.currentTimeMillis()/1000F))
+					while (count < 100 && start+delay > (System.currentTimeMillis()/1000L))
 					{
+//						if (debug)
+//							lblog.info("Loop DB thread at " + (System.currentTimeMillis()/1000L));
+						
 						b = bqueue.poll(1L, TimeUnit.SECONDS);
 						if (b == null)
 							continue;
@@ -513,7 +519,8 @@ public class LogBlock extends Plugin
 						ps.executeUpdate();
 						count++;
 					}
-					
+					if (debug && count > 0)
+						lblog.info("Commiting " + count + " inserts.");
 					conn.commit();
 				} catch (InterruptedException ex) {
 					log.log(Level.SEVERE, name + " interrupted exception", ex);
