@@ -16,7 +16,7 @@ import net.minecraft.server.MinecraftServer;
 
 public class Tips extends Plugin {
    private String name = "Tips";
-	private int version = 9;
+	private int version = 10;
    private String location = "tips.txt";
    private String  color = MyColors.LightBlue;
    private String  prefix = "TIP: ";
@@ -29,10 +29,17 @@ public class Tips extends Plugin {
 
    static final Logger log = Logger.getLogger("Minecraft");
 
-	private TipGroup getTipGroup(String group)
+	private TipGroup getTipGroup(int id)
+	{
+		if (id < 0 || id >= tips.size())
+			return null;
+		return tips.get(id);
+	}
+
+	private TipGroup getTipGroup(String groups)
 	{
 		for (int i=0; i < tips.size(); i++)
-			if (tips.get(i).group.equals(group))
+			if (tips.get(i).matchGroups(groups))
 				return tips.get(i);
 		return null;
 	}
@@ -75,27 +82,28 @@ public class Tips extends Plugin {
 		}
 	}
 
-	public void displayTip(Player player, String group, int num, String tip)
+	public void displayTip(Player player, int group, int num)
 	{
+		String tip = tips.get(group).tips.get(num);
 		for (String t : tip.split("@"))
 		{
-			String message = MyColors.codeToColor(color) + group + " " + num + ": " + prefix + t;
+			String message = MyColors.codeToColor(color) + group + "/" + num + ": " + prefix + t;
 			player.sendMessage(message);
 		}
 	}
 
-	public void broadcastTip(TipGroup tg)
+	public void broadcastTip(int group)
 	{
 		for (Player p : etc.getServer().getPlayerList())
-			if (tg.group.equals("all") || p.isInGroup(tg.group))
-				displayTip(p, tg.nextTip());
+			if (tips.get(group).all || tips.get(group).matchGroup(p))
+				displayTip(p, tips.get(group).nextTip());
 	}
 
-	public void broadcastTip(TipGroup tg, int num)
+	public void broadcastTip(int group, int num)
 	{
 		for (Player p : etc.getServer().getPlayerList())
-			if (tg.group.equals("all") || p.isInGroup(tg.group))
-				displayTip(p, tg.tips.get(num));
+			if (tips.get(group).all || tips.get(group).matchGroup(p))
+				displayTip(p, tips.get(group).tips.get(num));
 	}
 
    public void broadcastTip()
@@ -103,7 +111,7 @@ public class Tips extends Plugin {
 		if (tips.isEmpty())
 			return;
 
-		broadcastTip(tips.get(currentGroup));
+		broadcastTip(currentGroup);
 		
 		currentGroup++;
 		if (currentGroup >= tips.size())
@@ -243,7 +251,7 @@ public class Tips extends Plugin {
 			{
 				String tip = "No tips.";
 				for (int i=0; i < tips.size(); i++)
-					if (tips.get(i).group.equals("all") || player.isInGroup(tips.get(i).group))
+					if (!tips.get(i).all && tips.get(i).matchGroup(player))
 					{
 						tip = tips.get(i).randTip();
 						break;
@@ -254,7 +262,7 @@ public class Tips extends Plugin {
 		         return true;
 				}
 				for (int i=0; i < tips.size(); i++)
-					if (tips.get(i).group.equals("all"))
+					if (tips.get(i).all)
 					{
 						tip = tips.get(i).randTip();
 						break;
@@ -269,12 +277,17 @@ public class Tips extends Plugin {
 	            player.sendMessage(Colors.Rose + "Usage: /tip add [group] [tip]");
 	            return true;
 	         }
-				TipGroup tg = getTipGroup(split[2]);
+				int group = -1;
+	         try {
+	            group = Integer.parseInt(split[2]);
+	         } catch (NumberFormatException ex) {
+					group = -1;
+	         }
+				TipGroup tg = getTipGroup(group);
 				if (tg == null)
 				{
-					tg = new TipGroup(split[2]);
-					tips.add(tg);
-		         player.sendMessage(Colors.Rose + "Tip Group '" + split[2] + "' Added.");
+		         player.sendMessage(Colors.Rose + "Tip group " + group + " not found.");
+					return true;
 				}
 	         String line = splittoline(split, 3);
 	         tg.tips.add(line);
@@ -284,22 +297,25 @@ public class Tips extends Plugin {
 			}
 			if (split[1].equalsIgnoreCase("del"))
 			{
-	         int tip = -1;
 	         if (split.length < 4) {
 	            player.sendMessage(Colors.Rose + "Usage: /tip del [group] [tip number]");
 	            return true;
 	         }
-				TipGroup tg = getTipGroup(split[2]);
-				if (tg == null)
-				{
-		         player.sendMessage(Colors.Rose + "Can't find Tip Group.");
-					return true;
-				}
+				int group = -1;
+	         int tip = -1;
 	         try {
+	            group = Integer.parseInt(split[2]);
 	            tip = Integer.parseInt(split[3]);
 	         } catch (NumberFormatException ex) {
+					group = -1;
 	            tip = -1;
 	         }
+				TipGroup tg = getTipGroup(group);
+				if (tg == null)
+				{
+		         player.sendMessage(Colors.Rose + "Can't find tip group " + group + ".");
+					return true;
+				}
 	         if (tip < 0 || tip >= tg.tips.size()) {
 	            player.sendMessage(Colors.Rose + "Invalid tip number.");
 	            return true;
@@ -308,7 +324,7 @@ public class Tips extends Plugin {
 	         player.sendMessage(Colors.Rose + "Tip Deleted.");
 				if (tg.tips.isEmpty())
 				{
-		         player.sendMessage(Colors.Rose + "Tip Group '" + tg.group + "' Deleted.");
+		         player.sendMessage(Colors.Rose + "Tip group " + group + " empty, deleted.");
 					tips.remove(tg);
 				}
 	         saveTips();
@@ -318,9 +334,27 @@ public class Tips extends Plugin {
 			{
 	         player.sendMessage(Colors.Rose + "Tip Groups:");
 				for (int i=0; i < tips.size(); i++)
-					player.sendMessage(MyColors.codeToColor(color) + tips.get(i).group + " " + tips.get(i).tips.size());
+					player.sendMessage(MyColors.codeToColor(color) + i + " " + tips.get(i).groupStr + " " + tips.get(i).tips.size());
 				return true;
 			}
+	      if (split[1].equalsIgnoreCase("addgroup"))
+			{
+	         if (split.length < 3) {
+	            player.sendMessage(Colors.Rose + "Usage: /tip addgroup [groups]");
+	            return true;
+	         }
+				for (int i=0; i < tips.size(); i++)
+					if (tips.get(i).matchGroups(split[2]))
+					{
+						player.sendMessage(Colors.Rose  + "Tip group already exists.");
+						return true;
+					}
+
+				TipGroup tg = new TipGroup(split[2]);
+				tips.add(tg);
+				player.sendMessage(Colors.Rose  + "Tip group added.");
+	         return true;
+	      }
 	      if (split[1].equalsIgnoreCase("find"))
 			{
 	         if (split.length < 3) {
@@ -333,7 +367,7 @@ public class Tips extends Plugin {
 		         int tipNum = tips.get(i).findTip(line);
 		         if (tipNum == -1)
 						continue;
-					displayTip(player, tips.get(i).group, tipNum, tips.get(i).tips.get(tipNum));
+					displayTip(player, i, tipNum);
 					return true;
 				}
 				player.sendMessage(Colors.Rose  + "Not found.");
@@ -344,24 +378,27 @@ public class Tips extends Plugin {
 	            player.sendMessage(Colors.Rose + "Usage: /tip b [group] [tip number]");
 	            return true;
 	         }
-				TipGroup tg = getTipGroup(split[2]);
-				if (tg == null)
-				{
-	            player.sendMessage(Colors.Rose + "Invalid tip group.");
-	            return true;
-				}
+				int group = -1;
 	         int tipNum = -1;
 	         try {
+					group = Integer.parseInt(split[2]);
 	            tipNum = Integer.parseInt(split[3]);
 	         } catch (NumberFormatException ex) {
-	            tipNum = -1;
+					group = -1;
+					tipNum = -1;
 	         }
+				TipGroup tg = getTipGroup(group);
+				if (tg == null)
+				{
+	            player.sendMessage(Colors.Rose + "Tip group " + group + " not found.");
+	            return true;
+				}
 	         if (tipNum < 0 || tipNum >= tg.tips.size()) {
 	            player.sendMessage(Colors.Rose + "Invalid tip number.");
 	            return true;
 	         }
             player.sendMessage(Colors.Rose + "Tip Broadcast.");
-				broadcastTip(tg, tipNum);
+				broadcastTip(group, tipNum);
 	         return true;
 	      }
 	      if (split[1].equalsIgnoreCase("reload")) {
@@ -373,6 +410,7 @@ public class Tips extends Plugin {
 			player.sendMessage(Colors.Rose + "Usage: /tip add [group] [text]");
 			player.sendMessage(Colors.Rose + "Usage: /tip del [group] [tip num]");
 			player.sendMessage(Colors.Rose + "Usage: /tip groups");
+			player.sendMessage(Colors.Rose + "Usage: /tip addgroup [groups]");
 			player.sendMessage(Colors.Rose + "Usage: /tip find [text]");
 			player.sendMessage(Colors.Rose + "Usage: /tip b [group] [tip num]");
 			player.sendMessage(Colors.Rose + "Usage: /tip reload");
@@ -382,22 +420,30 @@ public class Tips extends Plugin {
 
 	private class TipGroup
 	{
-		public String group;
 		public ArrayList<String> tips;
+		private String[] groups;
+		private String groupStr;
 		public int currentTip;
+		private boolean all = false;
 		
 		TipGroup()
 		{
 			this.tips = new ArrayList<String>();
-			this.group = "all";
+			this.groups = new String[]{"undef"};
 			this.currentTip = 0;
+			this.all = false;
 		}
 		
-		TipGroup(String group)
+		TipGroup(String groupStr)
 		{
 			this.tips = new ArrayList<String>();
-			this.group = group;
+			this.groups = groupStr.split(",");
+			this.groupStr = groupStr;
 			this.currentTip = 0;
+			this.all = false;
+			for (String g: this.groups)
+				if (g.equals("all"))
+					this.all = true;
 		}
 		
 		public int findTip(String search)
@@ -431,7 +477,7 @@ public class Tips extends Plugin {
 		{
 			for (int i=0; i < tips.size(); i++)
 			{
-				writer.write(this.group + splitChar + this.tips.get(i));
+				writer.write(this.groupStr + splitChar + this.tips.get(i));
 				writer.newLine();
 			}
 		}
@@ -439,6 +485,21 @@ public class Tips extends Plugin {
 		public void add(String tip)
 		{
 			this.tips.add(tip);
+		}
+		
+		public boolean matchGroup(Player player)
+		{
+			for (String g: this.groups)
+				if (player.isInGroup(g))
+					return true;
+			return false;
+		}
+		
+		public boolean matchGroups(String groups)
+		{
+			if (this.groupStr.equals(groups))
+				return true;
+			return false;
 		}
 	}
 }
