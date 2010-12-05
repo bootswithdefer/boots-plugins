@@ -19,7 +19,7 @@ import net.minecraft.server.MinecraftServer;
 public class Stats extends Plugin
 {
 	private String name = "Stats";
-	private int version = 15;
+	private int version = 16;
 	private PlayerMap playerStats = new PlayerMap();
 	private boolean stopTimer = false;
 	private String directory = "stats";
@@ -362,14 +362,19 @@ public class Stats extends Plugin
 		public boolean onBlockPlace(Player player, Block blockPlaced, Block blockClicked, Item itemInHand)
 		{
 			updateStat(player, "blockcreate", blockPlaced);
+			updateStat(player, "totalblockcreate");
 			if (lastface != null)
+			{
+				updateStat(player, "totalblockdestroy");
 				updateStat(player, "blockdestroy", lastface);
+			}
 			return false;
 		}
 		
 		public boolean onBlockBreak(Player player, Block block)
 		{
 			updateStat(player, "blockdestroy", block);
+			updateStat(player, "totalblockdestroy");
 			return false;
 		}
 		
