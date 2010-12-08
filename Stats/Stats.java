@@ -18,19 +18,19 @@ import net.minecraft.server.MinecraftServer;
 
 public class Stats extends Plugin
 {
+	private boolean enabled = false;
 	private String name = "Stats";
-	private int version = 16;
+	private int version = 17;
 	private PlayerMap playerStats = new PlayerMap();
-	private boolean stopTimer = false;
 	private String directory = "stats";
-	private int savedelay = 30;
+	private int delay = 30;
 	private String[] ignoredGroups = new String[] {""};
 	private final String defaultCategory = "stats";
 	private Block lastface = null;
 
 	static final Logger log	= Logger.getLogger("Minecraft");
 
-	private void startTimer() {
+/*	private void startTimer() {
 		stopTimer =	false;
 		final	Timer	timer	= new	Timer();
 				  timer.schedule(new	TimerTask()	{
@@ -42,12 +42,12 @@ public class Stats extends Plugin
 					}
 					saveAll();
 				}
-			},	3000,	savedelay*1000);
+			},	3000,	delay*1000);
 	}
 
 	private void stopTimer() {
 		stopTimer =	true;
-	}
+	}*/
 
 	public void enable()
 	{
@@ -56,11 +56,10 @@ public class Stats extends Plugin
 			directory = properties.getString("stats-directory", "stats");
 			String s = properties.getString("stats-ignored-groups", "default");
 			ignoredGroups = s.split(",");
-			savedelay = properties.getInt("stats-save-delay", 30);
+			delay = properties.getInt("stats-save-delay", 30);
 		} catch (Exception e) {
 			log.log(Level.SEVERE, "Exception	while	reading from server.properties",	e);
 		}
-		startTimer();
 	 	try {
 			new File(directory).mkdir();
 		} catch (Exception e) {
@@ -70,14 +69,18 @@ public class Stats extends Plugin
       for  (Player p: etc.getServer().getPlayerList())
 			load(p);
 
+//		startTimer();
+		etc.getServer().addToServerQueue(new SaveAll(), delay*1000L);
+		enabled = true;
 		log.info(name + " v" + version + " Plugin Enabled.");
 	}
 
 	public void disable()
 	{
-		stopTimer();
+//		stopTimer();
 		saveAll();
 		playerStats = new PlayerMap();
+		enabled = false;
 		log.info(name + " v" + version + " Plugin Disabled.");
 	}
 
@@ -462,6 +465,18 @@ public class Stats extends Plugin
 			if (now > time + delta)
 				return true;
 			return false;
+		}
+	}
+	
+	// task for server's DelayQueue
+	private class SaveAll implements Runnable
+	{
+		public void run()
+		{
+			if (!enabled)
+				return;
+			saveAll();
+			etc.getServer().addToServerQueue(this, delay*1000L);
 		}
 	}
 }
