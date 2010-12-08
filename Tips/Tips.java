@@ -15,12 +15,12 @@ import java.util.Random;
 import net.minecraft.server.MinecraftServer;
 
 public class Tips extends Plugin {
-   private String name = "Tips";
-	private int version = 10;
+   private boolean enabled = false;
+	private String name = "Tips";
+	private int version = 11;
    private String location = "tips.txt";
    private String  color = MyColors.LightBlue;
    private String  prefix = "TIP: ";
-   private boolean stopTimer = false;
    private int delay = 120;
    private ArrayList<TipGroup> tips = new ArrayList<TipGroup>();
 	private Random generator = null;
@@ -44,7 +44,7 @@ public class Tips extends Plugin {
 		return null;
 	}
 
-   private void startTimer() {
+/*   private void startTimer() {
       stopTimer = false;
       final Timer timer = new Timer();
               timer.schedule(new TimerTask() {
@@ -61,7 +61,7 @@ public class Tips extends Plugin {
 
    private void stopTimer() {
       stopTimer = true;
-   }
+   }*/
 
    private String splittoline(String[] split, int start) {
       String line = "";
@@ -127,8 +127,15 @@ public class Tips extends Plugin {
          writer.newLine();
          writer.write("# Format: ");
          writer.newLine();
-         writer.write("# group" + splitChar + "tip ");
+         writer.write("# groups" + splitChar + "tip ");
          writer.newLine();
+			if (tips.size() == 0)
+			{
+				writer.write("admins" + splitChar + "See /tip ? for help.");
+				writer.newLine();
+				writer.write("all" + splitChar + "You should probably delete me, I'm just an example.");
+				writer.newLine();
+			}
          for (int i=0; i < tips.size(); i++)
 				tips.get(i).write(writer);
       } catch (Exception e) {
@@ -149,7 +156,6 @@ public class Tips extends Plugin {
       if (!new File(location).exists())
 		{
           saveTips();
-          return;
       }
       try {
 			Scanner scanner = new Scanner(new File(location));
@@ -187,7 +193,7 @@ public class Tips extends Plugin {
 			scanner.close();
 		} catch (Exception e) {
 			log.log(Level.SEVERE, "Exception while reading " + location, e);
-			stopTimer();
+//			stopTimer();
 		}
    }
 
@@ -210,14 +216,17 @@ public class Tips extends Plugin {
 			color = MyColors.LightBlue;
       etc.getInstance().addCommand("/tip", " - display a random tip.");
       loadTips();
-      startTimer();
+//      startTimer();
+		etc.getServer().addToServerQueue(new Broadcaster(), delay*1000L);
+		enabled = true;
 		log.info(name + " v" + version + " Plugin Enabled.");
    }
 
    public void disable()
 	{
-      stopTimer();
+//      stopTimer();
       etc.getInstance().removeCommand("/tip");
+		enabled = false;
 		log.info(name + " v" + version + " Plugin Disabled.");
    }
 	
@@ -500,6 +509,17 @@ public class Tips extends Plugin {
 			if (this.groupStr.equals(groups))
 				return true;
 			return false;
+		}
+	}
+	
+	private class Broadcaster implements Runnable
+	{
+		public void run()
+		{
+			if (!enabled)
+				return;
+			broadcastTip();
+			etc.getServer().addToServerQueue(this, delay*1000L);
 		}
 	}
 }
