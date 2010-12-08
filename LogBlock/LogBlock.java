@@ -164,7 +164,7 @@ public class LogBlock extends Plugin
 			try {
 				conn = getConnection();
 				conn.setAutoCommit(false);
-				ps = conn.prepareStatement("SELECT player, count(player) as num from blocks where type > 0 and x > ? and x < ? and z > ? and z < ? group by player order by count(player) desc limit 10", Statement.RETURN_GENERATED_KEYS);
+				ps = conn.prepareStatement("SELECT player, count(player) as num from blocks where type > 0 and y > 0 and x > ? and x < ? and z > ? and z < ? group by player order by count(player) desc limit 10", Statement.RETURN_GENERATED_KEYS);
 				ps.setInt(1, (int)player.getX()-size);
 				ps.setInt(2, (int)player.getX()+size);
 				ps.setInt(3, (int)player.getZ()-size);
@@ -178,7 +178,7 @@ public class LogBlock extends Plugin
 				rs.close();
 				ps.close();
 				
-				ps = conn.prepareStatement("SELECT player, count(player) as num from blocks where replaced > 0 and x > ? and x < ? and z > ? and z < ? group by player order by count(player) desc limit 10", Statement.RETURN_GENERATED_KEYS);
+				ps = conn.prepareStatement("SELECT player, count(player) as num from blocks where replaced > 0 and y > 0 and x > ? and x < ? and z > ? and z < ? group by player order by count(player) desc limit 10", Statement.RETURN_GENERATED_KEYS);
 				ps.setInt(1, (int)player.getX()-size);
 				ps.setInt(2, (int)player.getX()+size);
 				ps.setInt(3, (int)player.getZ()-size);
@@ -249,7 +249,7 @@ public class LogBlock extends Plugin
 			try {
 				conn = getConnection();
 				conn.setAutoCommit(false);
-				ps = conn.prepareStatement("SELECT type, count(type) as num from blocks where type > 0 and player = ? and x > ? and x < ? and z > ? and z < ? group by type order by count(replaced) desc limit 10", Statement.RETURN_GENERATED_KEYS);
+				ps = conn.prepareStatement("SELECT type, count(type) as num from blocks where type > 0 and player = ? and y > 0 and x > ? and x < ? and z > ? and z < ? group by type order by count(replaced) desc limit 10", Statement.RETURN_GENERATED_KEYS);
 				ps.setString(1, name);
 				ps.setInt(2, (int)player.getX()-size);
 				ps.setInt(3, (int)player.getX()+size);
@@ -264,7 +264,7 @@ public class LogBlock extends Plugin
 				rs.close();
 				ps.close();
 				
-				ps = conn.prepareStatement("SELECT replaced, count(replaced) as num from blocks where replaced > 0 and player = ? and x > ? and x < ? and z > ? and z < ? group by replaced order by count(replaced) desc limit 10", Statement.RETURN_GENERATED_KEYS);
+				ps = conn.prepareStatement("SELECT replaced, count(replaced) as num from blocks where replaced > 0 and player = ? and y > 0 and x > ? and x < ? and z > ? and z < ? group by replaced order by count(replaced) desc limit 10", Statement.RETURN_GENERATED_KEYS);
 				ps.setString(1, name);
 				ps.setInt(2, (int)player.getX()-size);
 				ps.setInt(3, (int)player.getX()+size);
