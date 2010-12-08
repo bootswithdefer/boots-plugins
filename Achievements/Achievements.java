@@ -20,9 +20,9 @@ import net.minecraft.server.MinecraftServer;
 
 public class Achievements extends Plugin
 {
+	private boolean enabled = false;
    private String name = "Achievements";
-   private int version = 12;
-   private boolean stopTimer = false;
+   private int version = 13;
    private String directory = "achievements";
    private String listLocation = "achievements.txt";
 	private String color = MyColors.LightBlue;
@@ -33,7 +33,7 @@ public class Achievements extends Plugin
 	
    static final Logger log = Logger.getLogger("Minecraft");
 
-   private void startTimer()
+/*   private void startTimer()
 	{
       stopTimer = false;
       final Timer timer = new Timer();
@@ -53,12 +53,8 @@ public class Achievements extends Plugin
    private void stopTimer()
 	{
       stopTimer = true;
-   }
+   }*/
 	
-	public void checkNotifications(Player player)
-	{
-	}
-
 	private void sendAchievementMessage(Player p, AchievementListData ach)
 	{
 		broadcast(MyColors.codeToColor(color) + prefix + p.getName() + " has been awarded " + ach.getName() + "!");
@@ -347,13 +343,16 @@ public class Achievements extends Plugin
       etc.getInstance().addCommand("/checkachievements", " - Checks achievements.");
       etc.getInstance().addCommand("/reloadachievements", " - Reloads achievements.");
       loadAchievementList();
-      startTimer();
+//      startTimer();
+		etc.getServer().addToServerQueue(new Checker(), delay*1000L);
+		enabled = true;
 		log.info(name + " v" + version + " Plugin Enabled.");
    }
 
    public void disable()
 	{
-      stopTimer();
+//      stopTimer();
+		enabled = false;
 		log.info(name + " v" + version + " Plugin Disabled.");
    }
 	
@@ -377,6 +376,18 @@ public class Achievements extends Plugin
 	private void error(String msg)
 	{
 		log.log(Level.SEVERE, name + ": " + msg);
+	}
+	
+	// task for server's DelayQueue
+	private class Checker implements Runnable
+	{
+		public void run()
+		{
+			if (!enabled)
+				return;
+			checkStats();
+			etc.getServer().addToServerQueue(this, delay*1000L);
+		}
 	}
 	
 	// custom plugin listener
@@ -417,12 +428,11 @@ public class Achievements extends Plugin
 	}
 	
 	// hey0 command listener
-	public class AchievementsListener extends PluginListener
+	private class AchievementsListener extends PluginListener
 	{
 	   public void onLogin(Player player)
 	   {
 	      loadPlayerAchievements(player.getName());
-			checkNotifications(player);
 	   }
 	
 	   public void onDisconnect(Player player)
