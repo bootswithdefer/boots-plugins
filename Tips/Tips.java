@@ -17,7 +17,7 @@ import net.minecraft.server.MinecraftServer;
 public class Tips extends Plugin {
    private boolean enabled = false;
 	private String name = "Tips";
-	private int version = 11;
+	private int version = 12;
    private String location = "tips.txt";
    private String  color = MyColors.LightBlue;
    private String  prefix = "TIP: ";
@@ -258,7 +258,7 @@ public class Tips extends Plugin {
 
 			if (split.length == 1 || !player.canUseCommand("/tipadmin"))
 			{
-				String tip = "No tips.";
+				String tip = null;
 				for (int i=0; i < tips.size(); i++)
 					if (!tips.get(i).all && tips.get(i).matchGroup(player))
 					{
@@ -276,7 +276,12 @@ public class Tips extends Plugin {
 						tip = tips.get(i).randTip();
 						break;
 					}
-				displayTip(player, tip);
+				if (tip != null)
+				{
+					displayTip(player, tip);
+		         return true;
+				}
+				displayTip(player, "No tips found.");
 	         return true;
 	      }
 
