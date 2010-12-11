@@ -69,7 +69,7 @@ public class VersionCheck
 						log.info(name + " matches latest version (v" + serverVersion + ")");
 				}
 				
-				if (version == serverVersion && etc.getInstance().getVersion() < hModVersion)
+				if (version == serverVersion && !etc.getInstance().getTainted() && etc.getInstance().getVersion() < hModVersion)
 					log.log(Level.SEVERE, name + " v" + version + " is not supported on your version of hMod (" + etc.getInstance().getVersion() + "), upgrade to at least hMod " + hModVersion);
 			} catch (Exception ex) {
 				log.log(Level.SEVERE, "VersionCheck exception", ex);
