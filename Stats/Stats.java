@@ -20,7 +20,7 @@ public class Stats extends Plugin
 {
 	private boolean enabled = false;
 	private String name = "Stats";
-	private int version = 17;
+	private int version = 18;
 	private PlayerMap playerStats = new PlayerMap();
 	private String directory = "stats";
 	private int delay = 30;
@@ -108,6 +108,7 @@ public class Stats extends Plugin
 		etc.getLoader().addListener(PluginLoader.Hook.ITEM_USE, listener, this, PluginListener.Priority.MEDIUM);
 		etc.getLoader().addListener(PluginLoader.Hook.TELEPORT, listener, this, PluginListener.Priority.MEDIUM);
 		etc.getLoader().addListener(PluginLoader.Hook.HEALTH_CHANGE, listener, this, PluginListener.Priority.MEDIUM);
+		etc.getLoader().addListener(PluginLoader.Hook.DAMAGE, listener, this, PluginListener.Priority.MEDIUM);
 		etc.getLoader().addListener(PluginLoader.Hook.IGNITE, listener, this, PluginListener.Priority.MEDIUM);
 		etc.getLoader().addListener(PluginLoader.Hook.VEHICLE_ENTERED, listener, this, PluginListener.Priority.MEDIUM);
 		
@@ -407,18 +408,103 @@ public class Stats extends Plugin
 		public boolean onHealthChange(Player player, int oldValue, int newValue)
 		{
 			int change = newValue - oldValue;
-			if (change < 0) {
-				int damagetaken = get(player.getName(), defaultCategory, "damagetaken");
-				damagetaken += (change * -1);
-				updateStat(player, "damagetaken", damagetaken);
-			}
-			else if (change > 0)
+			if (change > 0)
+				updateStat(player, "damagehealed", change);
+			return false;
+		}
+		
+		public boolean onDamage(PluginLoader.DamageType type, BaseEntity attacker, BaseEntity defender, int amount)
+		{
+			Player d = null, a = null;
+			String typeName = null;
+			Boolean died = false;
+			
+			if (defender != null && defender.isPlayer())
+				d = defender.getPlayer();
+			if (attacker != null && attacker.isPlayer())
+				a = attacker.getPlayer();
+
+			// one or other must be player
+			if (d == null && a == null)
+				return false;
+
+			switch (type)
 			{
-				int damagehealed = get(player.getName(), defaultCategory, "damagehealed");
-				damagehealed += change;
-				updateStat(player, "damagehealed", damagehealed);
+				case ENTITY:
+					if (a != null && d != null)
+						typeName = "player";
+					else if (defender instanceof LivingEntity)
+					{
+						LivingEntity le = (LivingEntity)defender;
+						if (le instanceof Mob)
+							typeName = ((Mob)le).getName();
+						else
+							typeName = "livingdefender";
+					}
+					else if (attacker instanceof LivingEntity)
+					{
+						LivingEntity le = (LivingEntity)attacker;
+						if (le instanceof Mob)
+							typeName = ((Mob)le).getName();
+						else
+							typeName = "livingattacker";
+					}
+					else if (defender instanceof Boat || attacker instanceof Boat)
+						typeName = "boat";
+					else if (defender instanceof Minecart || attacker instanceof Minecart)
+						typeName = "minecart";
+					else
+						typeName = "entity";
+					break;
+				case CREEPER_EXPLOSION: typeName = "creeperexplosion"; break;
+				case EXPLOSION: typeName = "explosion"; break;
+				case FALL: typeName = "fall"; break;
+				case FIRE:
+				case FIRE_TICK: typeName = "fire"; break;
+				case LAVA: typeName = "lava"; break;
+				case WATER: typeName = "water"; break;
+				case CACTUS: typeName = "cactus"; break;
+			}
+			
+			if (typeName == null)
+			{
+				log.info(name + " got unknown damage type: " + type);
+				return false;
 			}
 
+			if (defender instanceof LivingEntity)
+			{
+				LivingEntity le = (LivingEntity)defender;
+				if ((le.getHealth() - amount) <= 0)
+					died = true;
+			}
+
+			// attacker is player
+			if (a != null)
+			{
+				updateStat(a, "damagedealt", "total", amount);
+				updateStat(a, "damagedealt", typeName, amount);
+				
+				if (died)
+				{
+					updateStat(a, "kills", "total", 1);
+					updateStat(a, "kills", typeName, 1);
+				}
+			}
+
+			// defender is player
+			if (d != null)
+			{
+				updateStat(d, "damagetaken", "total", amount);
+				updateStat(d, "damagetaken", typeName, amount);
+				
+				if (died)
+				{
+					updateStat(d, "deaths", "total", 1);
+					updateStat(d, "deaths", typeName, 1);
+				}
+			}
+				
 			return false;
 		}
 		
