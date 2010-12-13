@@ -34,6 +34,8 @@ public class LogBlock extends Plugin
 	
 	public void enable()
 	{
+		new VersionCheck(name, version);
+		
 		PropertiesFile properties	= new	PropertiesFile("logblock.properties");
 		try {
 			debug = properties.getBoolean("debug", false);
@@ -48,13 +50,20 @@ public class LogBlock extends Plugin
 			toolblockRemove = properties.getBoolean("tool-block-remove", true);
 			defaultDist = properties.getInt("default-distance", 20);
 		} catch (Exception ex) {
-			log.log(Level.SEVERE, "Exception	while	reading from logblock.properties",	ex);
+			log.log(Level.SEVERE, name + ": exception while reading from logblock.properties",	ex);
+			return;
 		}		
 		try {
 			if (!usehModDb)
 				new JDCConnectionDriver(dbDriver, dbUrl, dbUsername, dbPassword);
 		} catch (Exception ex) {
-			log.log(Level.SEVERE, "Exception while creation database connection pool", ex);
+			log.log(Level.SEVERE, name + ": exception while creation database connection pool", ex);
+			return;
+		}
+
+		if (!checkTables())
+		{
+			log.log(Level.SEVERE, name + ": errors while loading, check logs for more information.");
 			return;
 		}
 
@@ -85,13 +94,12 @@ public class LogBlock extends Plugin
 			log.info(name + " unable to create logger");
 		}
 
-		new VersionCheck(name, version);
-		
 		LBListener listener = new LBListener();
 		etc.getLoader().addListener(PluginLoader.Hook.COMMAND, listener, this, PluginListener.Priority.LOW);
 		etc.getLoader().addListener(PluginLoader.Hook.BLOCK_RIGHTCLICKED, listener, this, PluginListener.Priority.LOW);
 		etc.getLoader().addListener(PluginLoader.Hook.BLOCK_PLACE, listener, this, PluginListener.Priority.LOW);
 		etc.getLoader().addListener(PluginLoader.Hook.BLOCK_BROKEN, listener, this, PluginListener.Priority.LOW);
+		etc.getLoader().addListener(PluginLoader.Hook.COMPLEX_BLOCK_CHANGE, listener, this, PluginListener.Priority.LOW);
 	}
 	
 	private Connection getConnection() throws SQLException
@@ -99,6 +107,41 @@ public class LogBlock extends Plugin
 		if (usehModDb)
 			return etc.getSQLConnection();
 		return DriverManager.getConnection("jdbc:jdc:jdcpool");
+	}
+	
+	private boolean checkTables()
+	{
+		Connection conn = null;
+		ResultSet rs = null;
+		try {
+			conn = getConnection();
+			DatabaseMetaData dbm = conn.getMetaData();
+			rs = dbm.getTables(null, null, "blocks", null);
+			if (!rs.next())
+			{
+				log.log(Level.SEVERE, name + " blocks table doesn't exist.");
+				return false;
+			}
+			rs = dbm.getTables(null, null, "extra", null);
+			if (!rs.next())
+			{
+				log.log(Level.SEVERE, name + " extra table doesn't exist.");
+				return false;
+			}
+			return true;
+		} catch (SQLException ex) {
+			log.log(Level.SEVERE, name + " SQL exception", ex);
+		} finally {
+			try {
+				if (rs != null)
+					rs.close();
+				if (conn != null)
+					conn.close();
+			} catch (SQLException ex) {
+				log.log(Level.SEVERE, name + " SQL exception on close", ex);
+			}
+		}
+		return false;
 	}
 	
 	private void showBlockHistory(Player player, Block b)
@@ -114,7 +157,7 @@ public class LogBlock extends Plugin
 		try {
 			conn = getConnection();
 			conn.setAutoCommit(false);
-			ps = conn.prepareStatement("SELECT * from blocks where y = ? and x = ? and z = ? order by date desc limit 10", Statement.RETURN_GENERATED_KEYS);
+			ps = conn.prepareStatement("SELECT * from blocks left join extra using (id) where y = ? and x = ? and z = ? order by date desc limit 10", Statement.RETURN_GENERATED_KEYS);
 			ps.setInt(1, b.getY());
 			ps.setInt(2, b.getX());
 			ps.setInt(3, b.getZ());
@@ -127,7 +170,12 @@ public class LogBlock extends Plugin
 				if (rs.getInt("type") == 0)
 					msg = msg + "destroyed " + etc.getDataSource().getItem(rs.getInt("replaced"));
 				else if (rs.getInt("replaced") == 0)
-					msg = msg + "created " + etc.getDataSource().getItem(rs.getInt("type"));
+				{
+					if (rs.getInt("type") == 323) // sign
+						msg = msg + "created " + rs.getString("extra");
+					else
+						msg = msg + "created " + etc.getDataSource().getItem(rs.getInt("type"));
+				}
 				else
 					msg = msg + "replaced " + etc.getDataSource().getItem(rs.getInt("replaced")) + " with " + etc.getDataSource().getItem(rs.getInt("type"));
 				player.sendMessage(Colors.Gold + msg);
@@ -171,6 +219,23 @@ public class LogBlock extends Plugin
 			return;
 			
 		BlockRow row = new BlockRow(player.getName(), typeB, typeA, b.getX(), b.getY(), b.getZ());
+		boolean result = bqueue.offer(row);
+		if (debug)
+			lblog.info(row.toString());
+		if (!result)
+			log.info(name + " failed to queue block for " + player.getName());
+	}
+	
+	private void queueSign(Player player, Sign sign)
+	{
+		int type = etc.getDataSource().getItem("sign");
+		BlockRow row = new BlockRow(player.getName(), 0, type, sign.getX(), sign.getY(), sign.getZ());
+
+		String text = "sign";
+		for (int i=0; i < 4; i++)
+			text = text + " [" + sign.getText(i) + "]";
+		row.addExtra(text);
+
 		boolean result = bqueue.offer(row);
 		if (debug)
 			lblog.info(row.toString());
@@ -300,8 +365,8 @@ public class LogBlock extends Plugin
 			}
 				
 			lastface = blockClicked.getFace(blockClicked.getFaceClicked());
-//			if (debug)
-//				lblog.info("onBlockRightClicked: clicked " + blockClicked.getType() + " item " + item.getItemId() + " face " + blockClicked.getFace(blockClicked.getFaceClicked()).getType());
+			if (debug)
+				lblog.info("onBlockRightClicked: clicked " + blockClicked.getType() + " item " + item.getItemId() + " face " + blockClicked.getFace(blockClicked.getFaceClicked()).getType());
 		}		
 
 		public boolean onBlockPlace(Player player, Block blockPlaced, Block blockClicked, Item itemInHand)
@@ -314,8 +379,8 @@ public class LogBlock extends Plugin
 				return false;
 			}
 
-//			if (debug)
-//				lblog.info("onBlockPlace: placed " + blockPlaced.getType() + " clicked " + blockClicked.getType() + " item " + itemInHand.getItemId());
+			if (debug)
+				lblog.info("onBlockPlace: placed " + blockPlaced.getType() + " clicked " + blockClicked.getType() + " item " + itemInHand.getItemId());
 
 			queueBlock(player, lastface, blockPlaced);
 			return false;
@@ -324,6 +389,16 @@ public class LogBlock extends Plugin
 		public boolean onBlockBreak(Player player, Block block)
 		{
 			queueBlock(player, block, null);
+			return false;
+		}
+		
+		public boolean onComplexBlockChange(Player player, ComplexBlock cb)
+		{
+			if (cb instanceof Sign)
+			{
+				Sign sign = (Sign)cb;
+				queueSign(player, sign);
+			}
 			return false;
 		}
 	} // end LBListener
@@ -371,6 +446,19 @@ public class LogBlock extends Plugin
 						ps.setInt(5, b.y);
 						ps.setInt(6, b.z);
 						ps.executeUpdate();
+						
+						if (b.extra != null)
+						{
+							ResultSet keys = ps.getGeneratedKeys();
+							keys.next();
+							int key = keys.getInt(1);
+							
+							ps = conn.prepareStatement("INSERT INTO extra (id, extra) values (?,?)");
+							ps.setInt(1, key);
+							ps.setString(2, b.extra);
+							ps.executeUpdate();
+						}
+						
 						count++;
 					}
 					if (debug && count > 0)
@@ -399,6 +487,7 @@ public class LogBlock extends Plugin
 		public String name;
 		public int replaced, type;
 		public int x, y, z;
+		public String extra;
 		
 		BlockRow(String name, int replaced, int type, int x, int y, int z)
 		{
@@ -408,6 +497,12 @@ public class LogBlock extends Plugin
 			this.x = x;
 			this.y = y;
 			this.z = z;
+			this.extra = null;
+		}
+
+		public void addExtra(String extra)
+		{
+			this.extra = extra;
 		}
 		
 		public String toString()
