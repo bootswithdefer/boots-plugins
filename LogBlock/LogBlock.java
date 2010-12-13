@@ -11,7 +11,7 @@ import net.minecraft.server.MinecraftServer;
 public class LogBlock extends Plugin
 {
 	private static String name = "LogBlock";
-	private static int version = 12;
+	private static int version = 13;
 	private boolean debug = false;
 	private String dbDriver = "com.mysql.jdbc.Driver";
 	private String dbUrl = "";
@@ -19,7 +19,7 @@ public class LogBlock extends Plugin
 	private String dbPassword = "";
 	private boolean usehModDb = false;
 	private int delay = 10;
-	private int defaultDist = 6;
+	private int defaultDist = 20;
 	private int toolID = 270; // 270 is wood pick axe
 	private int toolblockID = 7; // 78 is adminium
 	private boolean toolblockRemove = true;
@@ -46,7 +46,7 @@ public class LogBlock extends Plugin
 			toolID = properties.getInt("tool-id", 270);
 			toolblockID = properties.getInt("tool-block-id", 7);
 			toolblockRemove = properties.getBoolean("tool-block-remove", true);
-			defaultDist = properties.getInt("default-distance", 10);
+			defaultDist = properties.getInt("default-distance", 20);
 		} catch (Exception ex) {
 			log.log(Level.SEVERE, "Exception	while	reading from logblock.properties",	ex);
 		}		
@@ -60,6 +60,8 @@ public class LogBlock extends Plugin
 
 		consumer = new Consumer();
 		new Thread(consumer).start();
+      etc.getInstance().addCommand("/lb", " - LogBlock display command.");
+      etc.getInstance().addCommand("/rollback", " - LogBlock Rollback command.");
 		log.info(name + " v" + version + " Plugin Enabled.");
 	}
 
@@ -68,6 +70,8 @@ public class LogBlock extends Plugin
 		if (consumer != null)
 			consumer.stop();
 		consumer = null;
+      etc.getInstance().removeCommand("/lb");
+      etc.getInstance().removeCommand("/rollback");
 		log.info(name + " v" + version + " Plugin Disabled.");
 	}
 
@@ -173,6 +177,28 @@ public class LogBlock extends Plugin
 		if (!result)
 			log.info(name + " failed to queue block for " + player.getName());
 	}
+	
+	private int parseTimeSpec(String ts)
+	{
+		String[] split = ts.split(" ");
+		
+		if (split.length < 2)
+			return 0;
+			
+		int min;
+		try {
+			min = Integer.parseInt(split[0]);
+		} catch (NumberFormatException ex) {
+			return 0;
+		}
+		
+		if (split[1].startsWith("hour"))
+			min *= 60;
+		else if (split[1].startsWith("day"))
+			min *= (60*24);
+		
+		return min;
+	}
 
 	public class LBListener extends PluginListener // start
 	{
@@ -230,6 +256,38 @@ public class LogBlock extends Plugin
 				player.sendMessage(Colors.Rose + "Incorrect usage.");
 				return true;
 			}
+
+	      if (split[0].equalsIgnoreCase("/rollback"))
+			{
+				int minutes;
+				String name;
+				
+				if (split.length < 3)
+				{
+					player.sendMessage(Colors.Rose + "Usate: /rollback [player] [time spec]");
+					return true;
+				}
+				name = split[1];
+				minutes = parseTimeSpec(etc.combineSplit(2, split, " "));
+				
+				player.sendMessage(Colors.Rose + "Rolling back " + name + " by " + minutes + " minutes.");
+
+				Connection conn;
+				try {
+					conn = getConnection();
+				} catch (SQLException ex) {
+					log.log(Level.SEVERE, name + " SQL exception", ex);
+					player.sendMessage(Colors.Rose + "Error, check server logs.");
+					return true;
+				}
+				Rollback rb = new Rollback(conn, name, minutes);
+				
+				player.sendMessage(Colors.Rose + "Edit count: " + rb.count());
+
+				new Thread(rb).start();
+				return true;
+			}
+
 			return false;
 		}
 
