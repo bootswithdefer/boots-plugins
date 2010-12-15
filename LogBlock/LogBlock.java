@@ -11,7 +11,7 @@ import net.minecraft.server.MinecraftServer;
 public class LogBlock extends Plugin
 {
 	private static String name = "LogBlock";
-	private static int version = 13;
+	private static int version = 14;
 	private boolean debug = false;
 	private String dbDriver = "com.mysql.jdbc.Driver";
 	private String dbUrl = "";
@@ -100,6 +100,7 @@ public class LogBlock extends Plugin
 		etc.getLoader().addListener(PluginLoader.Hook.BLOCK_PLACE, listener, this, PluginListener.Priority.LOW);
 		etc.getLoader().addListener(PluginLoader.Hook.BLOCK_BROKEN, listener, this, PluginListener.Priority.LOW);
 		etc.getLoader().addListener(PluginLoader.Hook.COMPLEX_BLOCK_CHANGE, listener, this, PluginListener.Priority.LOW);
+		etc.getLoader().addListener(PluginLoader.Hook.ITEM_USE, listener, this, PluginListener.Priority.LOW);
 	}
 	
 	private Connection getConnection() throws SQLException
@@ -401,6 +402,18 @@ public class LogBlock extends Plugin
 			}
 			return false;
 		}
+		
+		public boolean onItemUse(Player player, Block blockPlaced, Block blockClicked, Item item)
+		{
+			if (item.getItemId() != 326 && item.getItemId() != 327) // water and lava buckets
+				return false;
+			
+			queueBlock(player, lastface, blockPlaced);
+			if (debug)
+				lblog.info("onItemUse: placed " + blockPlaced.getType() + " clicked " + blockClicked.getType() + " item " + item.getItemId());
+
+			return false;
+		}
 	} // end LBListener
 
 	private class Consumer implements Runnable // start
@@ -428,17 +441,17 @@ public class LogBlock extends Plugin
 				try {
 					conn = getConnection();
 					conn.setAutoCommit(false);
-					ps = conn.prepareStatement("INSERT INTO blocks (date, player, replaced, type, x, y, z) VALUES (now(),?,?,?,?,?,?)", Statement.RETURN_GENERATED_KEYS);
-
 					while (count < 100 && start+delay > (System.currentTimeMillis()/1000L))
 					{
 //						if (debug)
 //							lblog.info("Loop DB thread at " + (System.currentTimeMillis()/1000L));
 						
 						b = bqueue.poll(1L, TimeUnit.SECONDS);
+
 						if (b == null)
 							continue;
 						//b.log();
+						ps = conn.prepareStatement("INSERT INTO blocks (date, player, replaced, type, x, y, z) VALUES (now(),?,?,?,?,?,?)", Statement.RETURN_GENERATED_KEYS);
 						ps.setString(1, b.name);
 						ps.setInt(2, b.replaced);
 						ps.setInt(3, b.type);
