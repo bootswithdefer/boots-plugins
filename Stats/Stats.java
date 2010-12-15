@@ -10,8 +10,6 @@ import java.io.BufferedWriter;
 import java.io.IOException;
 import java.util.Scanner;
 import java.util.logging.Logger;
-import java.util.Timer;
-import java.util.TimerTask;
 import java.util.logging.Level;
 
 import net.minecraft.server.MinecraftServer;
@@ -29,25 +27,6 @@ public class Stats extends Plugin
 	private Block lastface = null;
 
 	static final Logger log	= Logger.getLogger("Minecraft");
-
-/*	private void startTimer() {
-		stopTimer =	false;
-		final	Timer	timer	= new	Timer();
-				  timer.schedule(new	TimerTask()	{
-							@Override
-							public void	run()	{
-					if	(stopTimer)	{
-						timer.cancel();
-						return;
-					}
-					saveAll();
-				}
-			},	3000,	delay*1000);
-	}
-
-	private void stopTimer() {
-		stopTimer =	true;
-	}*/
 
 	public void enable()
 	{
@@ -69,7 +48,6 @@ public class Stats extends Plugin
       for  (Player p: etc.getServer().getPlayerList())
 			load(p);
 
-//		startTimer();
 		etc.getServer().addToServerQueue(new SaveAll(), delay*1000L);
 		enabled = true;
 		log.info(name + " v" + version + " Plugin Enabled.");
@@ -77,7 +55,6 @@ public class Stats extends Plugin
 
 	public void disable()
 	{
-//		stopTimer();
 		saveAll();
 		playerStats = new PlayerMap();
 		enabled = false;
