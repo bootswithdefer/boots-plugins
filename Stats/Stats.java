@@ -45,7 +45,7 @@ public class Stats extends Plugin
 			log.log(Level.SEVERE, "Exception while creating directory " + directory, e);
 		}
 		
-      for  (Player p: etc.getServer().getPlayerList())
+      for (Player p: etc.getServer().getPlayerList())
 			load(p);
 
 		etc.getServer().addToServerQueue(new SaveAll(), delay*1000L);
@@ -179,11 +179,11 @@ public class Stats extends Plugin
 		if (ps == null)
 		{
 			log.log(Level.SEVERE, "getStat on an unloaded player: " + player);
-			return -1;
+			return 0;
 		}
 		Category cat = ps.get(category);
 		if (cat == null)
-			return -2;
+			return 0;
 		return cat.get(key);
 	}
 
@@ -218,10 +218,14 @@ public class Stats extends Plugin
 	private void saveAll()
 	{
 		int count = 0;
-		
+
+      for (Player p: etc.getServer().getPlayerList())
+			if (inIgnoredGroup(p) && stats.containsKey(p.getName()))
+				stats.remove(p.getName());				
+
 		Iterator<String> iter = stats.keySet().iterator();
 		ArrayList<String> remove = new ArrayList<String>();
-		
+
 		while (iter.hasNext())
 		{
 			String name = iter.next();
