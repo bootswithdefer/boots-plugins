@@ -18,8 +18,8 @@ public class Stats extends Plugin
 {
 	private boolean enabled = false;
 	private String name = "Stats";
-	private int version = 18;
-	private PlayerMap playerStats = new PlayerMap();
+	private int version = 19;
+	private HashMap<String, PlayerStat> stats = new HashMap<String, PlayerStat>();
 	private String directory = "stats";
 	private int delay = 30;
 	private String[] ignoredGroups = new String[] {""};
@@ -56,7 +56,7 @@ public class Stats extends Plugin
 	public void disable()
 	{
 		saveAll();
-		playerStats = new PlayerMap();
+		stats = new HashMap<String, PlayerStat>();
 		enabled = false;
 		log.info(name + " v" + version + " Plugin Disabled.");
 	}
@@ -137,46 +137,110 @@ public class Stats extends Plugin
 	// primary updateStat
 	private void updateStat(String player, String category, String key, int val)
 	{
-		int oldval = playerStats.get(player, category, key);
-		if (oldval == -1)
-			oldval = 0;
-		playerStats.put(player, category, key, oldval + val);
+		PlayerStat ps = stats.get(player);
+		if (ps == null)
+		{
+			log.log(Level.SEVERE, "updateStat on an unloaded player: " + player);
+			return;
+		}
+		Category cat = ps.get(category);
+		if (cat == null)
+			cat = ps.newCategory(category);
+		cat.add(key, val);
+	}
+
+	private void logout(String player)
+	{
+		int now = (int)(System.currentTimeMillis()/1000L);
+		setStat(player, defaultCategory, "lastlogout", now);
+
+		int loginTime = get(player, defaultCategory, "lastlogin");
+		if (loginTime > 0 && now > loginTime)
+			updateStat(player, defaultCategory, "playedfor", now - loginTime);
 	}
 
 	private void setStat(String player, String category, String key, int val)
 	{
-		playerStats.put(player, category, key, val);
+		PlayerStat ps = stats.get(player);
+		if (ps == null)
+		{
+			log.log(Level.SEVERE, "setStat on an unloaded player: " + player);
+			return;
+		}
+		Category cat = ps.get(category);
+		if (cat == null)
+			cat = ps.newCategory(category);
+		cat.put(key, val);
 	}
 
 	public int get(String player, String category, String key)
 	{
-		return playerStats.get(player, category, key);
+		PlayerStat ps = stats.get(player);
+		if (ps == null)
+		{
+			log.log(Level.SEVERE, "getStat on an unloaded player: " + player);
+			return -1;
+		}
+		Category cat = ps.get(category);
+		if (cat == null)
+			return -2;
+		return cat.get(key);
 	}
 
 	private void load(Player player)
 	{
 		if (inIgnoredGroup(player))
 			return;
-		playerStats.load(directory, player.getName());
+		if (stats.containsKey(player.getName()))
+		{
+			log.log(Level.SEVERE, name + " attempting to load already loaded player: " + player.getName());
+			return;
+		}
+		PlayerStat ps = new PlayerStat(player.getName());
+		ps.load(directory);
+		stats.put(player.getName(), ps);
 	}
 
 	private void unload(Player player)
 	{
 		if (inIgnoredGroup(player))
 			return;
-		playerStats.unload(directory, player.getName());
+		if (!stats.containsKey(player.getName()))
+		{
+			log.log(Level.SEVERE, name + " attempting to unload an player that's not loaded: " + player.getName());
+			return;
+		}
+		PlayerStat ps = stats.get(player.getName());
+		ps.save(directory);
+		stats.remove(player.getName());
 	}
 
 	private void saveAll()
 	{
 		int count = 0;
-		for (Player p: etc.getServer().getPlayerList())
-			if (!inIgnoredGroup(p))
-			{
-				playerStats.save(directory, p.getName());
-				count++;
-			}
-//		log.info("Saved " + count + "/" + playerStats.size() + " stat files...");
+		
+		Iterator<String> iter = stats.keySet().iterator();
+		ArrayList<String> remove = new ArrayList<String>();
+		
+		while (iter.hasNext())
+		{
+			String name = iter.next();
+			PlayerStat stat = stats.get(name);
+			stat.save(directory);
+			count++;
+			if (etc.getServer().matchPlayer(name) == null)
+				remove.add(name);
+		}
+		
+		for (String name: remove)
+		{
+			log.log(Level.SEVERE, name + " onDisconnect did not happen, unloading " + name + " now");
+			logout(name);
+			stats.get(name).save(directory);
+			stats.remove(name);
+		}
+		
+//		log.info("Saved " + count + "/" + stats.size() + " stat files...");
 	}
 	
 	private boolean inIgnoredGroup(Player player)
@@ -228,7 +292,8 @@ public class Stats extends Plugin
 			String category = (String)parameters[1];
 			String key = (String)parameters[2];
 			
-			int data = get(name, category, key);
+			Integer data = get(name, category, key);
+			
 			return data;
 		}
 	}
@@ -292,18 +357,12 @@ public class Stats extends Plugin
 			load(player);
 			// TODO: rate limit to prevent abuse
 			updateStat(player, "login");
-			setStat(player.getName(), defaultCategory, "lastlogin", (int)(System.currentTimeMillis()/1000));
+			setStat(player.getName(), defaultCategory, "lastlogin", (int)(System.currentTimeMillis()/1000L));
 		}
 	
 		public void onDisconnect(Player player)
 		{
-			int now = (int)(System.currentTimeMillis()/1000L);
-			setStat(player.getName(), defaultCategory, "lastlogout", now);
-
-			int loginTime = get(player.getName(), defaultCategory, "lastlogin");
-			if (loginTime > 0 && now > loginTime)
-				updateStat(player, "playedfor", now - loginTime);
-
+			logout(player.getName());
 			unload(player);
 		}
 	
