@@ -5,12 +5,14 @@ import java.util.logging.Level;
 
 public class Category
 {
+	public boolean modified = false;
 	private HashMap<String, Integer> stats;
 	static final Logger log	= Logger.getLogger("Minecraft");
 
 	Category()
 	{
 		stats = new HashMap<String, Integer>();
+		modified = false;
 	}
 
 	public int get(String name)
@@ -24,6 +26,7 @@ public class Category
 	public void put(String name, Integer value)
 	{
 		stats.put(name, value);
+		modified = true;
 	}
 	
 	public void add(String name, Integer value)

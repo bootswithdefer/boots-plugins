@@ -18,9 +18,10 @@ public class Stats extends Plugin
 {
 	private boolean enabled = false;
 	private String name = "Stats";
-	private int version = 19;
+	private int version = 20;
 	private HashMap<String, PlayerStat> stats = new HashMap<String, PlayerStat>();
 	private String directory = "stats";
+	private boolean useSQL = false;
 	private int delay = 30;
 	private String[] ignoredGroups = new String[] {""};
 	private final String defaultCategory = "stats";
@@ -36,6 +37,7 @@ public class Stats extends Plugin
 			String s = properties.getString("stats-ignored-groups", "default");
 			ignoredGroups = s.split(",");
 			delay = properties.getInt("stats-save-delay", 30);
+			useSQL = properties.getBoolean("stats-use-sql", false);
 		} catch (Exception e) {
 			log.log(Level.SEVERE, "Exception	while	reading from server.properties",	e);
 		}
@@ -167,10 +169,7 @@ public class Stats extends Plugin
 			log.log(Level.SEVERE, "setStat on an unloaded player: " + player);
 			return;
 		}
-		Category cat = ps.get(category);
-		if (cat == null)
-			cat = ps.newCategory(category);
-		cat.put(key, val);
+		ps.put(category, key, val);
 	}
 
 	public int get(String player, String category, String key)
@@ -196,8 +195,26 @@ public class Stats extends Plugin
 			log.log(Level.SEVERE, name + " attempting to load already loaded player: " + player.getName());
 			return;
 		}
-		PlayerStat ps = new PlayerStat(player.getName());
-		ps.load(directory);
+		PlayerStat ps;
+		if (useSQL)
+		{
+			String location = directory + "/" + player.getName() + ".txt";
+			File fold = new File(location);
+			if (fold.exists())
+			{
+				PlayerStat psold = new PlayerStatFile(player.getName(), directory);
+				psold.load();
+				File fnew = new File(location + ".old");
+				fold.renameTo(fnew);
+				ps = new PlayerStatSQL(player.getName());
+				ps.copy(psold);
+				ps.save();
+			} else
+				ps = new PlayerStatSQL(player.getName());
+		}
+		else
+			ps = new PlayerStatFile(player.getName(), directory);
+		ps.load();
 		stats.put(player.getName(), ps);
 	}
 
@@ -211,7 +228,7 @@ public class Stats extends Plugin
 			return;
 		}
 		PlayerStat ps = stats.get(player.getName());
-		ps.save(directory);
+		ps.save();
 		stats.remove(player.getName());
 	}
 
@@ -230,7 +247,7 @@ public class Stats extends Plugin
 		{
 			String name = iter.next();
 			PlayerStat stat = stats.get(name);
-			stat.save(directory);
+			stat.save();
 			count++;
 			if (etc.getServer().matchPlayer(name) == null)
 				remove.add(name);
@@ -240,7 +257,7 @@ public class Stats extends Plugin
 		{
 			log.log(Level.SEVERE, name + " onDisconnect did not happen, unloading " + name + " now");
 			logout(name);
-			stats.get(name).save(directory);
+			stats.get(name).save();
 			stats.remove(name);
 		}
 		
