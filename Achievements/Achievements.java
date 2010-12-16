@@ -33,28 +33,6 @@ public class Achievements extends Plugin
 	
    static final Logger log = Logger.getLogger("Minecraft");
 
-/*   private void startTimer()
-	{
-      stopTimer = false;
-      final Timer timer = new Timer();
-      timer.schedule(
-            new TimerTask() {
-               @Override
-               	public void run() {
-                  if (stopTimer) {
-                     timer.cancel();
-                     return;
-                  }
-                  checkStats();
-               }
-            }, 3000, delay*1000);
-   }
-
-   private void stopTimer()
-	{
-      stopTimer = true;
-   }*/
-	
 	private void sendAchievementMessage(Player p, AchievementListData ach)
 	{
 		broadcast(MyColors.codeToColor(color) + prefix + p.getName() + " has been awarded " + ach.getName() + "!");
@@ -343,7 +321,6 @@ public class Achievements extends Plugin
       etc.getInstance().addCommand("/checkachievements", " - Checks achievements.");
       etc.getInstance().addCommand("/reloadachievements", " - Reloads achievements.");
       loadAchievementList();
-//      startTimer();
 		etc.getServer().addToServerQueue(new Checker(), delay*1000L);
 		enabled = true;
 		log.info(name + " v" + version + " Plugin Enabled.");
@@ -351,7 +328,6 @@ public class Achievements extends Plugin
 
    public void disable()
 	{
-//      stopTimer();
 		enabled = false;
 		log.info(name + " v" + version + " Plugin Disabled.");
    }
