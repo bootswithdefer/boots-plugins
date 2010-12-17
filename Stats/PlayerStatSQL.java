@@ -6,25 +6,30 @@ import java.sql.*;
 public class PlayerStatSQL extends PlayerStat
 {
 	private boolean enabled;
+	private boolean usehModDb;
 	private String dbDriver;
 	private String dbUrl;
 	private String dbUsername;
 	private String dbPassword;
 	static final Logger log	= Logger.getLogger("Minecraft");
 
-	PlayerStatSQL(String name)
+	PlayerStatSQL(String name, boolean usehModDb)
 	{
 		super(name);
-		
-		PropertiesFile properties	= new	PropertiesFile("mysql.properties");
-		try {
-			dbDriver = properties.getString("driver", "com.mysql.jdbc.Driver");
-			dbUrl = properties.getString("db", "jdbc:mysql://localhost:3306/minecraft");
-			dbUsername = properties.getString("username", "user");
-			dbPassword = properties.getString("password", "pass");
-		} catch (Exception ex) {
-			log.log(Level.SEVERE, this.getClass().getName() + ": exception while reading from mysql.properties", ex);
-			return;
+		this.usehModDb = usehModDb;
+
+		if (!usehModDb)
+		{		
+			PropertiesFile properties	= new	PropertiesFile("mysql.properties");
+			try {
+				dbDriver = properties.getString("driver", "com.mysql.jdbc.Driver");
+				dbUrl = properties.getString("db", "jdbc:mysql://localhost:3306/minecraft");
+				dbUsername = properties.getString("user", "user");
+				dbPassword = properties.getString("pass", "pass");
+			} catch (Exception ex) {
+				log.log(Level.SEVERE, this.getClass().getName() + ": exception while reading from mysql.properties", ex);
+				return;
+			}
 		}
 
 		enabled = checkSchema();
@@ -33,10 +38,13 @@ public class PlayerStatSQL extends PlayerStat
 	private Connection getConnection()
 	{
 		try {
+			if (usehModDb)
+				return etc.getSQLConnection();
 			return DriverManager.getConnection(dbUrl + "?autoReconnect=true&user=" + dbUsername + "&password=" + dbPassword);
 		} catch (SQLException ex) {
 			log.log(Level.SEVERE, this.getClass().getName() + ": exception while connection to database", ex);
 		}
+		enabled = false;
 		return null;
 	}
 
@@ -71,6 +79,9 @@ public class PlayerStatSQL extends PlayerStat
 
 	protected void save()
 	{
+		if (!enabled)
+			return;
+
 		Connection conn = null;
 		PreparedStatement ps = null;
 		
@@ -118,6 +129,9 @@ public class PlayerStatSQL extends PlayerStat
 	
 	protected void load()
 	{
+		if (!enabled)
+			return;
+
 		Connection conn = null;
 		PreparedStatement ps = null;
 		ResultSet rs = null;

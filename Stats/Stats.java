@@ -22,6 +22,7 @@ public class Stats extends Plugin
 	private HashMap<String, PlayerStat> stats = new HashMap<String, PlayerStat>();
 	private String directory = "stats";
 	private boolean useSQL = false;
+	private boolean usehModDb = false;
 	private int delay = 30;
 	private String[] ignoredGroups = new String[] {""};
 	private final String defaultCategory = "stats";
@@ -38,6 +39,9 @@ public class Stats extends Plugin
 			ignoredGroups = s.split(",");
 			delay = properties.getInt("stats-save-delay", 30);
 			useSQL = properties.getBoolean("stats-use-sql", false);
+			usehModDb = properties.getBoolean("stats-use-hmod-db", false);
+			if (usehModDb)
+				useSQL = true;
 		} catch (Exception e) {
 			log.log(Level.SEVERE, "Exception	while	reading from server.properties",	e);
 		}
@@ -200,17 +204,16 @@ public class Stats extends Plugin
 		{
 			String location = directory + "/" + player.getName() + ".txt";
 			File fold = new File(location);
+			ps = new PlayerStatSQL(player.getName(), usehModDb);
 			if (fold.exists())
 			{
 				PlayerStat psold = new PlayerStatFile(player.getName(), directory);
 				psold.load();
 				File fnew = new File(location + ".old");
 				fold.renameTo(fnew);
-				ps = new PlayerStatSQL(player.getName());
 				ps.copy(psold);
 				ps.save();
-			} else
-				ps = new PlayerStatSQL(player.getName());
+			}
 		}
 		else
 			ps = new PlayerStatFile(player.getName(), directory);
