@@ -44,25 +44,6 @@ public class Tips extends Plugin {
 		return null;
 	}
 
-/*   private void startTimer() {
-      stopTimer = false;
-      final Timer timer = new Timer();
-              timer.schedule(new TimerTask() {
-                     @Override
-                     public void run() {
-               if (stopTimer) {
-                  timer.cancel();
-                  return;
-               }
-               broadcastTip();
-            }
-         }, 3000, delay*1000);
-   }
-
-   private void stopTimer() {
-      stopTimer = true;
-   }*/
-
    private String splittoline(String[] split, int start) {
       String line = "";
       for (int i=start; i<split.length; i++) {
@@ -193,7 +174,6 @@ public class Tips extends Plugin {
 			scanner.close();
 		} catch (Exception e) {
 			log.log(Level.SEVERE, "Exception while reading " + location, e);
-//			stopTimer();
 		}
    }
 
@@ -216,7 +196,6 @@ public class Tips extends Plugin {
 			color = MyColors.LightBlue;
       etc.getInstance().addCommand("/tip", " - display a random tip.");
       loadTips();
-//      startTimer();
 		etc.getServer().addToServerQueue(new Broadcaster(), delay*1000L);
 		enabled = true;
 		log.info(name + " v" + version + " Plugin Enabled.");
@@ -224,7 +203,6 @@ public class Tips extends Plugin {
 
    public void disable()
 	{
-//      stopTimer();
       etc.getInstance().removeCommand("/tip");
 		enabled = false;
 		log.info(name + " v" + version + " Plugin Disabled.");
