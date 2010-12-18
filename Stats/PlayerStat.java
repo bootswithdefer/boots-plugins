@@ -1,3 +1,4 @@
+import java.io.File;
 import java.util.HashMap;
 import java.util.logging.Logger;
 import java.util.logging.Level;
@@ -41,6 +42,19 @@ public abstract class PlayerStat
 	{
 		this.name = from.name;
 		this.categories = new HashMap<String, Category>(from.categories);
+	}
+
+	public void convertFlatFile(String directory)
+	{
+		PlayerStat psold = new PlayerStatFile(name, directory);
+		psold.load();
+		copy(psold);
+		save();
+
+		String location = directory + "/" + name + ".txt";
+		File fold = new File(location);
+		File fnew = new File(location + ".old");
+		fold.renameTo(fnew);
 	}
 
 	protected abstract void save();

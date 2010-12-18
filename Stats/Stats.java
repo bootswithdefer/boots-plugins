@@ -8,6 +8,7 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.BufferedWriter;
 import java.io.IOException;
+import java.io.FilenameFilter;
 import java.util.Scanner;
 import java.util.logging.Logger;
 import java.util.logging.Level;
@@ -18,7 +19,7 @@ public class Stats extends Plugin
 {
 	private boolean enabled = false;
 	private String name = "Stats";
-	private int version = 20;
+	private int version = 21;
 	private HashMap<String, PlayerStat> stats = new HashMap<String, PlayerStat>();
 	private String directory = "stats";
 	private boolean useSQL = false;
@@ -56,6 +57,7 @@ public class Stats extends Plugin
 
 		etc.getServer().addToServerQueue(new SaveAll(), delay*1000L);
 		enabled = true;
+		etc.getInstance().addCommand("/stats", " - Stats plugin command");
 		log.info(name + " v" + version + " Plugin Enabled.");
 	}
 
@@ -64,6 +66,7 @@ public class Stats extends Plugin
 		saveAll();
 		stats = new HashMap<String, PlayerStat>();
 		enabled = false;
+		etc.getInstance().removeCommand("/stats");
 		log.info(name + " v" + version + " Plugin Disabled.");
 	}
 
@@ -202,18 +205,11 @@ public class Stats extends Plugin
 		PlayerStat ps;
 		if (useSQL)
 		{
-			String location = directory + "/" + player.getName() + ".txt";
-			File fold = new File(location);
 			ps = new PlayerStatSQL(player.getName(), usehModDb);
-			if (fold.exists())
-			{
-				PlayerStat psold = new PlayerStatFile(player.getName(), directory);
-				psold.load();
-				File fnew = new File(location + ".old");
-				fold.renameTo(fnew);
-				ps.copy(psold);
-				ps.save();
-			}
+
+			String location = directory + "/" + player.getName() + ".txt";
+			if (new File(location).exists())
+				ps.convertFlatFile(directory);
 		}
 		else
 			ps = new PlayerStatFile(player.getName(), directory);
@@ -399,6 +395,46 @@ public class Stats extends Plugin
 		
 		public boolean onCommand(Player player, String[] split)
 		{
+			if (player.canUseCommand("/stats") && split[0].equalsIgnoreCase("/stats"))
+			{
+				if (split.length == 2 && split[1].equalsIgnoreCase("convert"))
+				{
+					File dir = new File(directory);
+					FilenameFilter filter = new FilenameFilter() {
+						public boolean accept(File dir, String name) {
+							return name.endsWith(".txt");
+						}
+					}; 
+					String[] files = dir.list(filter);
+					if (files == null)
+					{
+						player.sendMessage(Colors.Rose + "No files to convert.");
+						return true;
+					}
+					
+					int count = 0;
+					PlayerStat ps;
+					for (int i=0; i < files.length; i++)
+					{
+						String location = directory + "/" + files[i];
+						File fold = new File(location);
+						if (!fold.exists())
+							continue;
+
+						String basename = files[i].substring(0, files[i].lastIndexOf("."));
+//						log.info(name + " convert: " + basename);
+						ps = new PlayerStatSQL(basename, usehModDb);
+						ps.convertFlatFile(directory);
+						count++;
+					}
+					
+					player.sendMessage(Colors.Rose + "Converted " + count + " stat files.");
+					return true;
+				}
+				player.sendMessage(Colors.Rose + "Player Stats in memory: " + stats.size());
+				return true;
+			}
+		
 			updateStat(player, "command");
 			return false;
 		}
