@@ -399,6 +399,12 @@ public class Stats extends Plugin
 			{
 				if (split.length == 2 && split[1].equalsIgnoreCase("convert"))
 				{
+					if (!useSQL)
+					{
+						player.sendMessage(Colors.Rose + "You are not running with SQL enabled.");
+						return true;
+					}
+					
 					File dir = new File(directory);
 					FilenameFilter filter = new FilenameFilter() {
 						public boolean accept(File dir, String name) {
