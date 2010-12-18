@@ -32,7 +32,7 @@ public class Conditionals
 		return this.empty;
 	}
 
-	public boolean meets(Player p, Achievements plugin)
+	public boolean meets(Achievements plugin, PlayerAchievement pa)
 	{
 		if (isEmpty())
 			return true;
@@ -56,13 +56,13 @@ public class Conditionals
 			AchievementListData ach = plugin.getAchievement(cond);
 			if (ach == null)
 				continue;
-
-			if (!not && plugin.hasAchievement(p, ach))
+				
+			if (!not && pa.hasAchievement(ach))
 			{
 				meets = true;
 				continue;
 			}
-			if (not && !plugin.hasAchievement(p, ach))
+			if (not && !pa.hasAchievement(ach))
 			{
 				meets = true;
 				continue;

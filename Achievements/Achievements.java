@@ -1,7 +1,7 @@
 import java.util.ArrayList;
 import java.util.List;
 import java.util.HashMap;
-import java.util.HashSet;
+import java.util.Iterator;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
@@ -9,46 +9,113 @@ import java.io.BufferedWriter;
 import java.io.IOException;
 import java.util.Scanner;
 import java.util.logging.Logger;
-import java.util.Timer;
-import java.util.TimerTask;
 import java.util.logging.Level;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.net.URLClassLoader;
 
 import net.minecraft.server.MinecraftServer;
 
 public class Achievements extends Plugin
 {
 	private boolean enabled = false;
+	private boolean useSQL = false;
+	private boolean usehModDb = false;
+	private boolean tweet = true;
    private String name = "Achievements";
-   private int version = 13;
+   private int version = 16;
    private String directory = "achievements";
    private String listLocation = "achievements.txt";
 	private String color = MyColors.LightBlue;
    private String prefix = "ACHIEVEMENT: ";
    private int delay = 300;
    private HashMap<String, AchievementListData> achievementList = new HashMap<String, AchievementListData>();
-   private HashMap<String, HashMap<String, PlayerAchievementData>> playerAchievements = new HashMap<String, HashMap<String, PlayerAchievementData>>();
+   private HashMap<String, PlayerAchievement> playerAchievements = new HashMap<String, PlayerAchievement>();
 	
    static final Logger log = Logger.getLogger("Minecraft");
+
+   public void enable()
+   {
+	   Plugin statsPlugin = etc.getLoader().getPlugin("Stats");
+      if (statsPlugin == null)
+      {
+         log.log(Level.SEVERE, "Stats plugin not found, aborting load of " + name);
+         return;
+      }
+		log.info(name + ": Found required plugin: " + statsPlugin.getName());
+
+      PropertiesFile properties = new PropertiesFile("server.properties");
+      try {
+         directory = properties.getString("achievements-directory", "achievements");
+         listLocation = properties.getString("achievements-list", "achievements.txt");
+         delay = properties.getInt("achievements-delay", 300);
+			prefix = properties.getString("achievements-prefix", "ACHIEVEMENT: ");
+         color = properties.getString("achievements-color", MyColors.LightBlue);
+			useSQL = properties.getBoolean("achievements-use-sql", false);
+			usehModDb = properties.getBoolean("achievements-use-hmod-db", false);
+			if (usehModDb)
+				useSQL = true;
+			tweet = properties.getBoolean("achievements-tweet", true);
+      } 
+      catch (Exception e) {
+         log.log(Level.SEVERE, "Exception while reading from server.properties", e);
+      }
+	 	try {
+			new File(directory).mkdir();
+		} catch (Exception e) {
+			log.log(Level.SEVERE, "Exception while creating directory " + directory, e);
+		}
+		
+      etc.getInstance().addCommand("/achievements", " - Lists your achievements.");
+      etc.getInstance().addCommand("/listachievements", " - Lists all achievements.");
+      etc.getInstance().addCommand("/checkachievements", " - Checks achievements.");
+      etc.getInstance().addCommand("/reloadachievements", " - Reloads achievements.");
+      loadAchievementList();
+		etc.getServer().addToServerQueue(new Checker(), delay*1000L);
+		enabled = true;
+		log.info(name + " v" + version + " Plugin Enabled.");
+   }
+
+   public void disable()
+	{
+		enabled = false;
+		log.info(name + " v" + version + " Plugin Disabled.");
+   }
+	
+	public void initialize()
+	{
+		new VersionCheck(name, version);
+		
+		AchievementsListener listener = new AchievementsListener();
+		etc.getLoader().addListener(PluginLoader.Hook.LOGIN, listener, this, PluginListener.Priority.LOW);
+		etc.getLoader().addListener(PluginLoader.Hook.DISCONNECT, listener, this, PluginListener.Priority.LOW);
+		etc.getLoader().addListener(PluginLoader.Hook.COMMAND, listener, this, PluginListener.Priority.LOW);
+		
+		etc.getLoader().addCustomListener(new AchievementAward());
+	}
+
+	private void info(String msg)
+	{
+		log.info(name + ": " + msg);
+	}
+	
+	private void error(String msg)
+	{
+		log.log(Level.SEVERE, name + ": " + msg);
+	}
 
 	private void sendAchievementMessage(Player p, AchievementListData ach)
 	{
 		broadcast(MyColors.codeToColor(color) + prefix + p.getName() + " has been awarded " + ach.getName() + "!");
 		p.sendMessage(MyColors.codeToColor(color) + "(" + ach.getDescription() + ")");
 	}
-	
-	public boolean hasAchievement(Player p, AchievementListData ach)
+
+	private void tweet(String player, AchievementListData ach)
 	{
-		if (ach == null)
-			return false;
-		if (playerAchievements.get(p.getName()).containsKey(ach.getName()))
-			return true;
-		return false;
+		if (!tweet)
+			return;
+		String msg = prefix + player + " has been awarded " + ach.getName() + "!";
+		etc.getLoader().callCustomHook("tweet", new Object[] {msg});
 	}
 
-	public AchievementListData getAchievement(String name)
+	protected AchievementListData getAchievement(String name)
 	{
 		return achievementList.get(name);
 	}
@@ -60,13 +127,15 @@ public class Achievements extends Plugin
          if (!playerAchievements.containsKey(p.getName())) // add player to achievement list
             loadPlayerAchievements(p.getName());
       
+			PlayerAchievement pa = playerAchievements.get(p.getName());
+		
          for (String name2: achievementList.keySet())
          {
             AchievementListData ach = achievementList.get(name2);
 				if (!ach.isEnabled()) // disabled, skip
 					continue;
 
-				if (!ach.conditions.meets(p, this))
+				if (!ach.conditions.meets(this, pa))
 					continue;
 
 				Object ret = etc.getLoader().callCustomHook("get stat", new Object[] {p.getName(), ach.getCategory(), ach.getKey()});
@@ -75,10 +144,11 @@ public class Achievements extends Plugin
           	if (playerValue < ach.getValue()) // doesn't meet requirements, skip
            		continue;
 
-				PlayerAchievementData pad = playerAchievements.get(p.getName()).get(ach.getName());
-
 				//award achievement
-				if (pad != null) {
+				if (pa.hasAchievement(ach))
+				{
+					Achievement pad = pa.get(ach.getName());
+
 					// already awarded
 					if (pad.getCount() >= ach.getMaxawards())
 						continue;
@@ -86,16 +156,17 @@ public class Achievements extends Plugin
 					if (pad.getCount() > 0 && playerValue < ((pad.getCount() + 1) * ach.getValue()))
 						continue;
 					
-					pad.incrementCount();							
-				} else {
+					pad.incrementCount();
+				}
+				else
+				{
 					// not already found
-					pad = new PlayerAchievementData(ach.getName(), 1);
-          		playerAchievements.get(p.getName()).put(ach.getName(), pad);
+					pa.award(ach.getName());
 				}
 
 				sendAchievementMessage(p, ach);
-				pad.notified();
-            savePlayerAchievements(p.getName());
+				tweet(p.getName(), ach);
+				pa.save();
 
 				ach.commands.run(p);
          }
@@ -107,21 +178,20 @@ public class Achievements extends Plugin
 		if (!playerAchievements.containsKey(player))
             loadPlayerAchievements(player);
 
+		PlayerAchievement pa = playerAchievements.get(player);
+
 		AchievementListData ach = achievementList.get(achievement);
 		if (ach == null) {
 			error("unable to award (not found): " + achievement + " for: " + player);
 			return;
 		}
-		PlayerAchievementData pad;
-		
-		if (!playerAchievements.get(player).containsKey(achievement))
+		if (!pa.hasAchievement(ach))
 		{
-			pad = new PlayerAchievementData(achievement, 1);
-			playerAchievements.get(player).put(achievement, pad);
+			pa.award(achievement);
 		}
 		else
 		{
-			pad = playerAchievements.get(player).get(achievement);
+			Achievement pad = pa.get(achievement);
 			if (pad.getCount() < ach.getMaxawards())
 				pad.incrementCount();
 			else
@@ -137,10 +207,51 @@ public class Achievements extends Plugin
 		{
 			sendAchievementMessage(p, ach);
 			ach.commands.run(p);
-			pad.notified();
 		}
+		tweet(player, ach);
+		
+		pa.save();
+	}
 
-		savePlayerAchievements(player);
+	private void loadPlayerAchievements(String player)
+	{
+		if (playerAchievements.containsKey(player))
+		{
+			log.log(Level.SEVERE, name + " attempting to load already loaded player: " + player);
+			return;
+		}
+		PlayerAchievement pa;
+		if (useSQL)
+		{
+			String location = directory + "/" + player + ".txt";
+			File fold = new File(location);
+			pa = new PlayerAchievementSQL(player, usehModDb);
+			if (fold.exists())
+			{
+				PlayerAchievement paold = new PlayerAchievementFile(directory, player);
+				paold.load();
+				File fnew = new File(location + ".old");
+				fold.renameTo(fnew);
+				pa.copy(paold);
+				pa.save();
+			}
+		}
+		else
+			pa = new PlayerAchievementFile(directory, player);
+		pa.load();
+		playerAchievements.put(player, pa);
+	}
+
+	private void unloadPlayerAchievements(String player)
+	{
+		if (!playerAchievements.containsKey(player))
+		{
+			log.log(Level.SEVERE, name + " attempting to unload a player who is not loaded: " + player);
+			return;
+		}
+		PlayerAchievement pa = playerAchievements.get(player);
+		pa.save();
+		playerAchievements.remove(player);
 	}
 
    private void saveAchievementList()
@@ -218,68 +329,6 @@ public class Achievements extends Plugin
          disable();
    }
 
-   private void savePlayerAchievements(String player)
-   {
-      String location = directory + "/" + player + ".txt";
-      BufferedWriter writer = null;
-      try {
-         writer = new BufferedWriter(new	FileWriter(location));
-         writer.write("# " + location);
-         writer.newLine();
-         for (String p: playerAchievements.get(player).keySet())
-         {
-				PlayerAchievementData pad = playerAchievements.get(player).get(p);
-            writer.write(pad.toString());
-            writer.newLine();
-         }
-      } 
-         catch (Exception e) {
-            log.log(Level.SEVERE, "Exception while creating "	+ location,	e);
-         } 
-      finally {
-         try {
-            if (writer != null) {
-               writer.close();
-            }
-         }	
-            catch	(IOException e) {
-            }
-      }
-   }
-
-   private void loadPlayerAchievements(String player)
-   {
-      if (playerAchievements.containsKey(player))
-         playerAchievements.remove(player);
-      playerAchievements.put(player, new HashMap<String, PlayerAchievementData>());
-   
-      String location = directory + "/" + player + ".txt";
-      if (!new File(location).exists())
-         return;
-      try {
-         Scanner scanner =	new Scanner(new File(location));
-         while	(scanner.hasNextLine())
-         {
-            String line =	scanner.nextLine();
-            if (line.startsWith("#") || line.equals(""))
-               continue;
-            String[] split = line.split(":");
-            if (split.length < 1) {
-               log.log(Level.SEVERE, "Malformed line (" + line + ") in " + location);
-               continue;
-            }
-            int count = 1;
-            if (split.length >= 2)
-               count = Integer.parseInt(split[1]);
-            playerAchievements.get(player).put(split[0], new PlayerAchievementData(split[0], count));
-         }
-         scanner.close();
-      } 
-         catch (Exception e) {
-            log.log(Level.SEVERE, "Exception	while	reading " +	location, e);
-         }
-   }
-
    private void broadcast(String message)
    {
       for (Player	p : etc.getServer().getPlayerList()) {
@@ -288,72 +337,7 @@ public class Achievements extends Plugin
          }
       }
    }
-	
-   public void enable()
-   {
-	   Plugin statsPlugin = etc.getLoader().getPlugin("Stats");
-      if (statsPlugin == null)
-      {
-         log.log(Level.SEVERE, "Stats plugin not found, aborting load of " + name);
-         return;
-      }
-		log.info(name + ": Found required plugin: " + statsPlugin.getName());
 
-      PropertiesFile properties = new PropertiesFile("server.properties");
-      try {
-         directory = properties.getString("achievements-directory", "achievements");
-         listLocation = properties.getString("achievements-list", "achievements.txt");
-         delay = properties.getInt("achievements-delay", 300);
-			prefix = properties.getString("achievements-prefix", "ACHIEVEMENT: ");
-         color = properties.getString("achievements-color", MyColors.LightBlue);
-      } 
-      catch (Exception e) {
-         log.log(Level.SEVERE, "Exception while reading from server.properties", e);
-      }
-	 	try {
-			new File(directory).mkdir();
-		} catch (Exception e) {
-			log.log(Level.SEVERE, "Exception while creating directory " + directory, e);
-		}
-		
-      etc.getInstance().addCommand("/achievements", " - Lists your achievements.");
-      etc.getInstance().addCommand("/listachievements", " - Lists all achievements.");
-      etc.getInstance().addCommand("/checkachievements", " - Checks achievements.");
-      etc.getInstance().addCommand("/reloadachievements", " - Reloads achievements.");
-      loadAchievementList();
-		etc.getServer().addToServerQueue(new Checker(), delay*1000L);
-		enabled = true;
-		log.info(name + " v" + version + " Plugin Enabled.");
-   }
-
-   public void disable()
-	{
-		enabled = false;
-		log.info(name + " v" + version + " Plugin Disabled.");
-   }
-	
-	public void initialize()
-	{
-		new VersionCheck(name, version);
-		
-		AchievementsListener listener = new AchievementsListener();
-		etc.getLoader().addListener(PluginLoader.Hook.LOGIN, listener, this, PluginListener.Priority.LOW);
-		etc.getLoader().addListener(PluginLoader.Hook.DISCONNECT, listener, this, PluginListener.Priority.LOW);
-		etc.getLoader().addListener(PluginLoader.Hook.COMMAND, listener, this, PluginListener.Priority.LOW);
-		
-		etc.getLoader().addCustomListener(new AchievementAward());
-	}
-
-	private void info(String msg)
-	{
-		log.info(name + ": " + msg);
-	}
-	
-	private void error(String msg)
-	{
-		log.log(Level.SEVERE, name + ": " + msg);
-	}
-	
 	// task for server's DelayQueue
 	private class Checker implements Runnable
 	{
@@ -413,6 +397,7 @@ public class Achievements extends Plugin
 	
 	   public void onDisconnect(Player player)
 	   {
+			unloadPlayerAchievements(player.getName());
 	   }
 	
 	   public boolean onCommand(Player player, String[] split)
@@ -423,18 +408,21 @@ public class Achievements extends Plugin
 	            player.sendMessage(Colors.Rose + "You have no achievements.");
 	            return true;
 	         }
-	         for (String p: playerAchievements.get(player.getName()).keySet())
+				PlayerAchievement pa = playerAchievements.get(player.getName());
+				Iterator<String> iter = pa.iterator();
+				while (iter.hasNext())
 	         {
-					PlayerAchievementData pad = playerAchievements.get(player.getName()).get(p);
-	         	AchievementListData ach = achievementList.get(pad.getName());
+					String achievement = iter.next();
+					Achievement pad = pa.get(achievement);
+	         	AchievementListData ach = achievementList.get(achievement);
 					if (ach == null) {
-						player.sendMessage(MyColors.codeToColor(color) + pad.getName() + " (OLD)");
+						player.sendMessage(MyColors.codeToColor(color) + achievement + " (OLD)");
 						continue;
 					}
 	         	if (pad.getCount() > 1)
-	         		player.sendMessage(MyColors.codeToColor(color) + pad.getName() + " (" + pad.getCount() + "): " + ach.getDescription());
+	         		player.sendMessage(MyColors.codeToColor(color) + achievement + " (" + pad.getCount() + "): " + ach.getDescription());
 	         	else
-	         		player.sendMessage(MyColors.codeToColor(color) + pad.getName() + ": " + ach.getDescription());
+	         		player.sendMessage(MyColors.codeToColor(color) + achievement + ": " + ach.getDescription());
 	         }
 	         return true;
 	      }
