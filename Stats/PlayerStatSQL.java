@@ -51,6 +51,7 @@ public class PlayerStatSQL extends PlayerStat
 	private boolean checkSchema()
 	{
 		Connection conn = null;
+		PreparedStatement ps = null;
 		ResultSet rs = null;
 		try {
 			conn = getConnection();
@@ -58,8 +59,16 @@ public class PlayerStatSQL extends PlayerStat
 			rs = dbm.getTables(null, null, "stats", null);
 			if (!rs.next())
 			{
-				log.log(Level.SEVERE, this.getClass().getName() + " stats table doesn't exist.");
-				return false;
+				ps = conn.prepareStatement(
+					"CREATE TABLE `stats` (" +
+					"`player` varchar(32) NOT NULL DEFAULT '-'," +
+					"`category` varchar(32) NOT NULL DEFAULT 'stats'," +
+					"`stat` varchar(32) NOT NULL DEFAULT '-'," +
+					"`value` int(11) NOT NULL DEFAULT '0'," +
+					"PRIMARY KEY (`player`,`category`,`stat`));"
+				);
+				ps.executeUpdate();
+				log.info(this.getClass().getName() + " created table 'stats'.");
 			}
 			return true;
 		} catch (SQLException ex) {
@@ -68,6 +77,8 @@ public class PlayerStatSQL extends PlayerStat
 			try {
 				if (rs != null)
 					rs.close();
+				if (ps != null)
+					ps.close();
 				if (conn != null)
 					conn.close();
 			} catch (SQLException ex) {
