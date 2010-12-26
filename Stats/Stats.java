@@ -146,12 +146,15 @@ public class Stats extends Plugin
 	// primary updateStat
 	private void updateStat(String player, String category, String key, int val)
 	{
-		PlayerStat ps = stats.get(player);
-		if (ps == null)
+		if (player == null || player.length()<1)
 		{
-			log.log(Level.SEVERE, "updateStat on an unloaded player: " + player);
+			log.log(Level.SEVERE, "updateStat got empty player for [" + category + "] [" + key + "] [" + val + "]");
 			return;
 		}
+	
+		PlayerStat ps = stats.get(player);
+		if (ps == null)
+			return;
 		Category cat = ps.get(category);
 		if (cat == null)
 			cat = ps.newCategory(category);
@@ -172,10 +175,7 @@ public class Stats extends Plugin
 	{
 		PlayerStat ps = stats.get(player);
 		if (ps == null)
-		{
-			log.log(Level.SEVERE, "setStat on an unloaded player: " + player);
 			return;
-		}
 		ps.put(category, key, val);
 	}
 
@@ -183,10 +183,7 @@ public class Stats extends Plugin
 	{
 		PlayerStat ps = stats.get(player);
 		if (ps == null)
-		{
-			log.log(Level.SEVERE, "getStat on an unloaded player: " + player);
 			return 0;
-		}
 		Category cat = ps.get(category);
 		if (cat == null)
 			return 0;
