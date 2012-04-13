@@ -1,6 +1,6 @@
 public class MyColors
 {
-	private static final String ColorString = "§";
+	private static final String ColorString = "&";
 
 	public static final String Black = "0";
 	public static final String Navy = "1";
